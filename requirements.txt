@@ -1,0 +1,3 @@
+numpy==1.19.4
+pyopencl==2020.2.2
+pytest==6.1.2
