@@ -29,7 +29,11 @@ class Tensor:
     """A tensor class. Computations can be delegated to the GPU."""
 
     def __init__(
-        self, data: Union[List, np.ndarray], gpu: bool = False
+        self,
+        data: Union[List, np.ndarray],
+        gpu: bool = False,
+        _children: List[Tensor] = [],
+        _op: str = "",
     ) -> None:
         """Initialize variables."""
 
@@ -43,23 +47,36 @@ class Tensor:
                 self._data: np.ndarray = data
 
         elif isinstance(data, cl_array.Array):
-            self._data: cl_arr.Array = data
-            warnings.warn("Warning: using `pyopencl.array.Array` directly")
+            self._data: cl_array.Array = data
+            # warnings.warn(
+            #     "Warning: using `pyopencl.array.Array` directly. "
+            #     "Tensors are loaded into the GPU. "
+            #     "GPU is enabled."
+            # )
 
         else:
             raise TypeError(
                 f"Expected `np.ndarray` or `list`, got `{type(data)}`"
             )
 
+        self._children: List[Tensor] = list(_children)
+        self._op: str = _op
         self._gpu: bool = gpu
+        self._grad: int = 0
 
-        if self._gpu:
+        if self._gpu and not isinstance(self._data, cl_array.Array):
             self._data = cl_array.to_device(QUEUE, self._data)
 
     def __str__(self) -> str:
         """A string representation of the tensor."""
 
-        return f"Tensor({self._data}, gpu={self._gpu})"
+        return (
+            f"Tensor(data={self._data},\n"
+            f"       gpu={self._gpu},\n"
+            f"       _children={list(range(len(self._children)))},\n"
+            f"       _op={self._op}\n"
+            ")"
+        )
 
     def cpu(self) -> Tensor:
         """Load the data into CPU."""
@@ -79,7 +96,7 @@ class Tensor:
 
         return self
 
-    def _setup(fun: Callable) -> Callable:
+    def _typecheck(fun: Callable) -> Callable:
         """A decorator for checking types and handling GPU tensors."""
 
         @wraps(fun)
@@ -96,72 +113,126 @@ class Tensor:
 
         return wrapper
 
-    @_setup
+    def backward(self):
+        """Perform a backward pass."""
+
+        # Construct the reverse topological order of all of the children in the
+        # computation graph
+        reverse_topological_ordering = []
+        visited = []
+
+        def topological_ordering(v):
+            if v not in visited:
+                visited.append(v)
+                for child in v._children:
+                    topological_ordering(child)
+                reverse_topological_ordering.append(v)
+
+        topological_ordering(self)
+        reverse_topological_ordering.reverse()
+
+        # Gradient of a tensor with respect to itself is 1
+        self.grad = 1
+
+        # Apply the chain rule to the children
+        for vertex in reverse_topological_ordering:
+            vertex._grad()
+
+    @_typecheck
     def __add__(self, other: Tensor) -> Tensor:
         """Add two tensors."""
 
-        return Tensor(self._data + other._data)
+        out = Tensor(self._data + other._data, self._gpu, [self, other], "+")
 
-    @_setup
+        def _grad():
+            self._grad += out._grad
+            other._grad += out._grad
+
+        out._grad = _grad
+
+        return out
+
+    @_typecheck
     def __iadd__(self, other: Tensor) -> Tensor:
         """Add two tensors in-place."""
 
-        self = Tensor(self._data + other._data)
+        self._data += other._data
         return self
 
-    @_setup
+    @_typecheck
     def __sub__(self, other: Tensor) -> Tensor:
         """Subtract two tensors."""
 
-        return Tensor(self._data - other._data)
+        out = Tensor(self._data - other._data, self._gpu, [self, other], "-")
 
-    @_setup
+        def _grad():
+            self._grad -= out._grad
+            other._grad -= out._grad
+
+        out._grad = _grad
+
+        return out
+
+    @_typecheck
     def __isub__(self, other: Tensor) -> Tensor:
         """Subtract two tensors in-place."""
 
-        self = Tensor(self._data - other._data)
+        self._data -= other._data
         return self
 
-    @_setup
+    @_typecheck
     def __mul__(self, other: Tensor) -> Tensor:
         """Multiply two tensors."""
 
-        return Tensor(self._data * other._data)
+        out = Tensor(self._data * other._data, self._gpu, [self, other], "*")
 
-    @_setup
+        def _grad():
+            self._grad += other._grad * out._grad
+            other._grad += slef._grad * out._grad
+
+        out._grad = _grad
+
+        return out
+
+    @_typecheck
     def __imul__(self, other: Tensor) -> Tensor:
         """Multiply two tensors in-place."""
 
-        self = Tensor(self._data * other._data)
+        self._data *= other._data
         return self
 
-    @_setup
+    @_typecheck
     def __truediv__(self, other: Tensor) -> Tensor:
         """Divide two tensors."""
 
         return Tensor(self._data / other._data)
 
-    @_setup
+    @_typecheck
     def __itruediv__(self, other: Tensor) -> Tensor:
         """Divide two tensors in-place."""
 
-        self = Tensor(self._data / other._data)
+        self._data /= other._data
         return self
 
-    @_setup
+    @_typecheck
     def __matmul__(self, other: Tensor) -> Tensor:
         """Multiply two matrices."""
 
         return Tensor(self._data @ other._data)
 
-    @_setup
+    @_typecheck
     def __imatmul__(self, other: Tensor) -> Tensor:
         """Multiply two matrices in-place."""
 
-        self._data = self._data @ other._data
-        return self
+        # self._data @= other._data
+        # return self
 
-    @_setup
+        raise NotImplementedError(
+            "In-place matrix multiplication is not (yet) supported. "
+            "Use 'a = a @ b' instead of 'a @= b'."
+        )
+
+    @_typecheck
     def __eq__(self, other: Tensor) -> Tensor:
         """Compare two tensors for equality."""
 
@@ -170,12 +241,12 @@ class Tensor:
 
         return (self._data == other._data).all()
 
-    @_setup
+    @_typecheck
     def __neq__(self, other: Tensor) -> Tensor:
         """Compare two tensors for inequality."""
 
         if self._gpu:
-            return (self._data.get() == other._data.get()).all()
+            return (self._data.get() == other._data.get()).any()
 
         return (self._data != other._data).any()
 
@@ -226,3 +297,15 @@ class Tensor:
         """Returns a dot product of two tensors."""
 
         return Tensor(np.dot(m1.data, m2.data))
+
+
+if __name__ == "__main__":
+    t1 = Tensor([1, 2, 3], gpu=True)
+    t2 = Tensor([1, 2, 3], gpu=True)
+    print(t1)
+    print(t2)
+
+    t3 = (t1 * t2)
+
+    # Fix TypeError: unsupported operand type(s) for *: 'int' and 'function'
+    print(t3.backward())

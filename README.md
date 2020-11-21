@@ -5,5 +5,11 @@ differentiation - implemented from scratch, with OpenCL GPU support.
 
 TODO:
 
-1. Implement all `Tensor` operations to be run on the GPU
-2. Refactor the `Tensor` class
+* Implement all `Tensor` operations to be run on the GPU
+* Refactor the `Tensor` class
+* Implement a reverse-mode automatic differentiation
+* More tests
+* Test GPU
+* Implement network layers
+* Implement a loss function(s?)
+* Implement Adam optimizer

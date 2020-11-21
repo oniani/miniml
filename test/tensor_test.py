@@ -52,7 +52,7 @@ class TestTensor:
         assert self.t1 * self.t2 == Tensor([2, 2, 2])
         assert self.t1 / self.t2 == Tensor([0.5, 0.5, 0.5])
 
-        # `==`, dot`, `@`, and `=@`
+        # `==`, dot`, and `@`
         assert Tensor.dot(self.t3, self.t4) == Tensor(
             [
                 [[22, 28], [58, 64]],
@@ -66,7 +66,7 @@ class TestTensor:
                 [[58, 64], [139, 154], [220, 244]],
             ]
         )
-        self.t3 @= self.t3
+        self.t3 = self.t3 @ self.t3
         assert self.t3 == Tensor([[30, 36, 42], [66, 81, 96], [102, 126, 150]])
 
     def test_tensor_gpu(self):
