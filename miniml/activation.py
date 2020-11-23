@@ -1,4 +1,11 @@
 # type: ignore
+"""
+Author: David Oniani
+
+A collection of activation functions and their derivatives. All functions are
+implemented using in-place changes for the efficiency and speed.
+"""
+
 import numpy as np
 import tensor as T
 
@@ -49,29 +56,50 @@ class ActivationDerivative:
 
     @staticmethod
     def relu(z: T.Tensor) -> T.Tensor:
-        """Derivative of the rectified linear activation function."""
+        """Derivative of the rectified linear activation function.
+        
+        There are two cases:
+           (1) if x <= 0, derivative is 0' = 0
+           (2) if x >  0, derivative is x' = 1
+        """
 
-        raise NotImplementedError
+        z.data: np.ndarray = np.where(z.data <= 0, 0, 1)
+        return z
 
     @staticmethod
     def tanh(z: T.Tensor) -> T.Tensor:
-        """Derivative of the tanh activation function."""
+        """Derivative of the tanh activation function.
+        
+        tanh(x) = (e^x - e^{-x}) / (e^x + e^{-x})
 
-        t = Activation.tanh(z)
-        return T.Tensor(1 - np.exp2(t.data))
+        tanh'(x) = ((e^x + e^{-x})^2 - (e^x - e^{-x})^2) / (e^x + e^{-x})^2
+                 = 1 - ((e^x - e^{-x}) / (e^x + e^{-x}))^2
+                 = 1 - tanh^2(x)
+        """
+
+        z.data: np.ndarray = 1 - np.square(np.tanh(z.data))
+        return z
 
     @staticmethod
     def sigmoid(z: T.Tensor) -> T.Tensor:
-        """Derivative of the sigmoid activation function."""
+        """Derivative of the sigmoid activation function.
+        
+        If the sigmoid function is denoted as s, it can be shown that the
+        derivative is computed as s * (1 - s).
+        """
 
-        s = Activation.sigmoid(z)
-        return s * (1 - s)
+        s: np.ndarray = 1 / (1 + np.exp(-z.data))
+        z.data: np.ndarray = s * (1 - s)
+        return z
 
     @staticmethod
     def softmax(z: T.Tensor) -> T.Tensor:
         """Derivative of the softmax activation function."""
 
-        raise NotImplementedError
+        exp: np.ndarray = np.exp(z.data)
+        z.data: np.ndarray = exp / np.sum(exp)
+        z.data = -np.outer(z.data, z.data) + np.diag(z.data.flatten())
+        return z
 
     @staticmethod
     def log_softmax(z: T.Tensor) -> T.Tensor:

@@ -1,8 +1,14 @@
-# Confer https://arxiv.org/pdf/1412.6980.pdf
-# type: ignore
+## type: ignore
+"""
+Author: David Oniani
 
-from typing import Callable
-from tensor import Tensor
+Description: An implementation of the glorious Adam optimizer based on the
+             paper "Adam: A Method for Stochastic Optimization." Avaibale at
+             https://arxiv.org/abs/1412.6980.
+"""
+
+from typing import Callable, Dict, List
+from tensor import Tensor  # type: ignore
 
 import numpy as np
 
@@ -14,17 +20,27 @@ class Adam:
         self,
         stochastic_function: Callable,
         grad_function: Callable,
-        alpha: float = 0.001,
+        params: List[Dict[str, str]],
+        lr: float = 1e-3,
         beta_1: float = 0.9,
         beta_2: float = 0.999,
-        epsilon: float = 10e-8,
+        eps: float = 1e-8,
     ) -> None:
         """Initialize the variables."""
 
-        self._alpha: float = alpha
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if eps < 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps}")
+        if beta_1 < 0 or beta_1 > 1.0:
+            raise ValueError(f"Invalid beta_1 value: {beta_1}")
+        if beta_2 < 0 or beta_2 > 1.0:
+            raise ValueError(f"Invalid beta_2 value: {beta_2}")
+
+        self._lr: float = lr
         self._beta_1: float = beta_1
         self._beta_2: float = beta_2
-        self._epsilon: float = epsilon
+        self._eps: float = eps
         self._stochastic_function: Callable = stochastic_function
         self._grad_function: Callable = grad_function
 
@@ -60,11 +76,11 @@ class Adam:
             theta_0_prev = theta_0
 
             # Update parameters
-            theta_0 = theta_0 - (self._alpha * m_cap) / (
-                np.sqrt(v_cap) + self._epsilon
+            theta_0 = theta_0 - (self._lr * m_cap) / (
+                np.sqrt(v_cap) + self._eps  # type: ignore
             )
 
-        return theta_0
+        return theta_0  # type: ignore
 
 
 def fun(x):
@@ -76,6 +92,9 @@ def grad_fun(x):
 
 
 if __name__ == "__main__":
-    optimizer = Adam(fun, grad_fun)
+    from nn import Net  # type: ignore
+
+    model = Net()
+    optimizer = Adam(fun, grad_fun, model._params)
     print(vars(optimizer))
     print(optimizer.step())
