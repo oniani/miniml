@@ -302,10 +302,11 @@ class Tensor:
 if __name__ == "__main__":
     t1 = Tensor([1, 2, 3], gpu=True)
     t2 = Tensor([1, 2, 3], gpu=True)
-    print(t1)
-    print(t2)
+    print(Tensor.dot(t1, t2))
+    # print(t1)
+    # print(t2)
 
-    t3 = (t1 * t2)
+    # t3 = t1 * t2
 
     # Fix TypeError: unsupported operand type(s) for *: 'int' and 'function'
-    print(t3.backward())
+    # print(t3.backward())
