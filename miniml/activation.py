@@ -15,38 +15,42 @@ class Activation:
 
     @staticmethod
     def relu(z: T.Tensor) -> T.Tensor:
-        """Rectified linear activation function."""
+        """The rectified linear activation function. (numerically stable)."""
 
         z.data: np.ndarray = np.maximum(0, z.data)
         return z
 
     @staticmethod
     def tanh(z: T.Tensor) -> T.Tensor:
-        """A tanh activation function."""
+        """The tanh activation function (numerically stable)."""
 
         z.data: np.ndarray = np.tanh(z.data)
         return z
 
     @staticmethod
     def sigmoid(z: T.Tensor) -> T.Tensor:
-        """A sigmoid activation function."""
+        """The sigmoid activation function (numerically stable)."""
 
-        z.data: np.ndarray = 1 / (1 + np.exp(-z.data))
+        if (z >= 0).all():
+            z.data: np.ndarray = 1 / (1 + np.exp(-z.data))
+        else:
+            z.data: np.ndarray = 1 / (1 + np.exp(z.data))
+
         return z
 
     @staticmethod
     def softmax(z: T.Tensor) -> T.Tensor:
-        """A softmax activation function."""
+        """The softmax activation function (numerically stable)."""
 
-        exp: np.ndarray = np.exp(z.data)
+        exp: np.ndarray = np.exp(z.data - np.max(z.data))
         z.data: np.ndarray = exp / np.sum(exp)
         return z
 
     @staticmethod
     def log_softmax(z: T.Tensor) -> T.Tensor:
-        """A log softmax activation function."""
+        """The log softmax activation function (numerically stable)."""
 
-        exp: np.ndarray = np.exp(z.data)
+        exp: np.ndarray = np.exp(z.data - np.max(z.data))
         z.data: np.ndarray = np.log(exp / np.sum(exp))
         return z
 
@@ -88,7 +92,11 @@ class ActivationDerivative:
         derivative is computed as s * (1 - s).
         """
 
-        s: np.ndarray = 1 / (1 + np.exp(-z.data))
+        if (z >= 0).all():
+            s: np.ndarray = 1 / (1 + np.exp(-z.data))
+        else:
+            s: np.ndarray = 1 / (1 + np.exp(z.data))
+
         z.data: np.ndarray = s * (1 - s)
         return z
 
@@ -96,7 +104,7 @@ class ActivationDerivative:
     def softmax(z: T.Tensor) -> T.Tensor:
         """Derivative of the softmax activation function."""
 
-        exp: np.ndarray = np.exp(z.data)
+        exp: np.ndarray = np.exp(z.data - np.max(z.data))
         z.data: np.ndarray = exp / np.sum(exp)
         z.data = -np.outer(z.data, z.data) + np.diag(z.data.flatten())
         return z

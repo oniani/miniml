@@ -1,3 +1,4 @@
 numpy==1.19.4
+pdoc3==0.9.1
 pyopencl==2020.2.2
 pytest==6.1.2
