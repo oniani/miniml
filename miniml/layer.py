@@ -1,6 +1,9 @@
 # type: ignore
 #
-# https://quantdare.com/create-your-own-deep-learning-framework-using-numpy/
+# The API presented at
+#   https://quantdare.com/create-your-own-deep-learning-framework-using-numpy/
+#
+# seems really nice.
 
 import numpy as np
 import tensor as T

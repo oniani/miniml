@@ -35,35 +35,30 @@ class TestTensor:
         """Testing `T` class operations on CPU and GPU."""
 
         # `+`, `-`, `*`, `/`, and `!=` operations
-        assert self.t1 + self.t2 != T([3.01, 3, 3])
-        assert self.t1 - self.t2 != T([-1, -0.9999, -1])
-        assert self.t1 * self.t2 != T([2, 2, 1.9999999])
-        assert self.t1 / self.t2 != T([0.55, 0.5, 0.5])
+        assert (self.t1 + self.t2 != T([3.01, 3, 3])).any()
+        assert (self.t1 - self.t2 != T([-1, -0.9999, -1])).any()
+        assert (self.t1 * self.t2 != T([2, 2, 1.9999999])).any()
+        assert (self.t1 / self.t2 != T([0.55, 0.5, 0.5])).any()
 
         # `+`, `-`, `*`, `/`, and `==` operations
-        assert self.t1 + self.t2 == T([3, 3, 3])
-        assert self.t1 - self.t2 == T([-1, -1, -1])
-        assert self.t1 * self.t2 == T([2, 2, 2])
-        assert self.t1 / self.t2 == T([0.5, 0.5, 0.5])
+        assert (self.t1 + self.t2 == T([3, 3, 3])).all()
+        assert (self.t1 - self.t2 == T([-1, -1, -1])).all()
+        assert (self.t1 * self.t2 == T([2, 2, 2])).all()
+        assert (self.t1 / self.t2 == T([0.5, 0.5, 0.5])).all()
 
-        # `==`, dot`, and `@`
-        assert T.dot(self.t3, self.t4) == T(
-            [
-                [[22, 28], [58, 64]],
-                [[49, 64], [139, 154]],
-                [[76, 100], [220, 244]],
-            ]
-        )
-        assert self.t3 @ self.t4 == T(
-            [
-                [[22, 28], [49, 64], [76, 100]],
-                [[58, 64], [139, 154], [220, 244]],
-            ]
-        )
-        self.t3 = self.t3 @ self.t3
-        assert self.t3 == T([[30, 36, 42], [66, 81, 96], [102, 126, 150]])
+        # `==` and dot`
+        assert (
+            T.dot(self.t3, self.t4)
+            == T(
+                [
+                    [[22, 28], [58, 64]],
+                    [[49, 64], [139, 154]],
+                    [[76, 100], [220, 244]],
+                ]
+            )
+        ).all()
 
-    def test_tensor_ops(self):
+    def test_tensor_ops_gpu(self):
         """Testing `T` class on GPU and verifying that it is faster."""
 
         # Number of iterations
@@ -86,15 +81,14 @@ class TestTensor:
         gpu_time = time.time() - cur
 
         # The results must be correct and the GPU should be faster
-        assert res_cpu == res_gpu.cpu()
-        assert res_cpu.cpu() == res_gpu.cpu()
-        assert res_cpu.cpu().cpu() == res_gpu.cpu().gpu().cpu().gpu().cpu()
-        assert res_cpu.gpu() == res_gpu.gpu().gpu()
-        assert res_cpu == res_gpu
-        assert res_cpu.gpu() == res_gpu.cpu()
-        assert res_cpu.cpu().cpu() == res_gpu.gpu()
-        assert res_cpu.cpu() == res_gpu.cpu().gpu()
-        print(f"CPU: {cpu_time}, GPU: {gpu_time}")
+        assert (res_cpu == res_gpu.cpu()).all()
+        assert (res_cpu.cpu() == res_gpu.cpu()).all()
+        assert (res_cpu.cpu().cpu() == res_gpu.cpu().gpu().cpu()).all()
+        assert (res_cpu.gpu() == res_gpu.gpu().gpu()).all()
+        assert (res_cpu.gpu() == res_gpu.cpu().gpu()).all()
+        assert (res_cpu.cpu().gpu() == res_gpu.gpu()).all()
+        assert (res_cpu.cpu() == res_gpu.gpu().cpu()).all()
+        print(f"\nops: CPU: {cpu_time}, GPU: {gpu_time}")
         assert cpu_time - gpu_time > 0
 
     def test_tensor_ops_rng(self):
@@ -103,12 +97,12 @@ class TestTensor:
            GPU and verifying that it is faster.
         """
 
-        # CPU
+        # GPU
         cur = time.time()
         gpu_x = T.rand(self._shape, gpu=True)
         gpu_time = time.time() - cur
 
-        # GPU
+        # CPU
         cur = time.time()
         cpu_x = T.rand(self._shape, gpu=False)
         cpu_time = time.time() - cur
@@ -116,32 +110,32 @@ class TestTensor:
         assert cpu_x.shape == self._shape
         assert gpu_x.shape == self._shape
         assert gpu_x.shape == cpu_x.shape
-        print(f"CPU: {cpu_time}, GPU: {gpu_time}")
+        print(f"\n`rand`: CPU: {cpu_time}, GPU: {gpu_time}")
         # Half a second better already
         assert cpu_time - gpu_time > 0.5
 
-        # CPU
-        cur = time.time()
-        gpu_x = T.uniform(10, 15, self._shape, gpu=True)
-        gpu_time = time.time() - cur
-
         # GPU
         cur = time.time()
-        cpu_x = T.uniform(10, 15, self._shape, gpu=False)
+        gpu_x = T.uniform(self._shape, 10, 15, gpu=True)
+        gpu_time = time.time() - cur
+
+        # CPU
+        cur = time.time()
+        cpu_x = T.uniform(self._shape, 10, 15, gpu=False)
         cpu_time = time.time() - cur
 
         assert cpu_x.shape == self._shape
         assert gpu_x.shape == self._shape
         assert gpu_x.shape == cpu_x.shape
-        print(f"CPU: {cpu_time}, GPU: {gpu_time}")
+        print(f"`uniform`: CPU: {cpu_time}, GPU: {gpu_time}")
         assert cpu_time - gpu_time > 0.5
 
-        # CPU
+        # GPU
         cur = time.time()
         gpu_x = T.normal(self._shape, gpu=True)
         gpu_time = time.time() - cur
 
-        # GPU
+        # CPU
         cur = time.time()
         cpu_x = T.normal(self._shape, gpu=False)
         cpu_time = time.time() - cur
@@ -149,5 +143,5 @@ class TestTensor:
         assert cpu_x.shape == self._shape
         assert gpu_x.shape == self._shape
         assert gpu_x.shape == cpu_x.shape
-        print(f"CPU: {cpu_time}, GPU: {gpu_time}")
+        print(f"`normal`: CPU: {cpu_time}, GPU: {gpu_time}")
         assert cpu_time - gpu_time > 0.5
