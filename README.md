@@ -15,14 +15,12 @@ differentiation - implemented from scratch, with OpenCL GPU support.
 
 ### Activation Functions
 
-| AF         | Function |
-| ---------- | -------- |
-| LeakyReLU  | [x]      |
-| ReLU       | [x]      |
-| Tanh       | [x]      |
-| Sigmoid    | [x]      |
-| Softmax    | [ ]      |
-| LogSoftmax | [ ]      |
+- [x] LeakyReLU
+- [x] ReLU
+- [x] Tanh
+- [x] Sigmoid
+- [ ] Softmax
+- [ ] LogSoftmax
 
 ### Tensor
 
@@ -56,7 +54,7 @@ TODO:
 - Implement network layers
 - Implement loss function(s?)
 - Implement Adam optimizer
-- More tests! (maybe use a monadic test-generator like Hypothesis?)
+- More tests (maybe use a monadic test-generator like Hypothesis?)
 
 ## References
 

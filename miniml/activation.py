@@ -7,10 +7,10 @@ implemented using in-place changes for the efficiency and speed.
 """
 
 import numpy as np
-import tensor as T
+import miniml.tensor as T
 
 
-class Activation:
+class A:
     """A collection of activation functions."""
 
     @staticmethod
@@ -57,7 +57,7 @@ class Activation:
         return T.Ops.log(exp / T.Reduce.sum(exp))
 
 
-class ActivationDerivative:
+class AD:
     """A collection of activation function derivatives."""
 
     @staticmethod
@@ -67,13 +67,10 @@ class ActivationDerivative:
         There are three cases:
            (1) if x < 0, derivative is x * alpha
            (2) if x > 0, derivative is 1
-           (3) if x = 0, derivative is not well-defined, but can treat as
-               x * alpha
+           (3) if x = 0, derivative is not well-defined, but can treat as 1
         """
 
-        return T.Ops.where(
-            z <= 0, z * alpha, T.Ops.fill(z.shape, 1, gpu=z._gpu)
-        )
+        return T.Ops.where(z < 0, z * alpha, 1)
 
     @staticmethod
     def relu(z: T.Tensor) -> T.Tensor:
@@ -82,10 +79,10 @@ class ActivationDerivative:
         There are three cases:
            (1) if x < 0, derivative is 0
            (2) if x > 0, derivative is 1
-           (3) if x = 0, derivative is not well-defined, but can treat as 0
+           (3) if x = 0, derivative is not well-defined, but can treat as 1
         """
 
-        return T.Ops.where(z <= 0, 0, 1)
+        return T.Ops.where(z < 0, 0, 1)
 
     @staticmethod
     def tanh(z: T.Tensor) -> T.Tensor:
@@ -126,39 +123,3 @@ class ActivationDerivative:
         """Derivative of the log softmax activation function."""
 
         raise NotImplementedError
-
-
-if __name__ == "__main__":
-    # Tensors
-    t1 = T.Tensor([-1, 0, 2, 3], gpu=True)
-    t2 = T.Tensor([-1, 0, 2, 3], gpu=False)
-
-    # Activation functions
-    assert Activation.leaky_relu(t1) == Activation.leaky_relu(t2).gpu()
-    assert Activation.relu(t1) == Activation.relu(t2).gpu()
-    assert Activation.tanh(t1) == Activation.tanh(t2).gpu()
-    assert Activation.sigmoid(t1) == Activation.sigmoid(t2).gpu()
-    assert Activation.softmax(t1) == Activation.softmax(t2).gpu()
-    assert Activation.log_softmax(t1) == Activation.log_softmax(t2).gpu()
-
-    print("Activation functions, success")
-
-    # Activation function derivatives
-    assert (
-        ActivationDerivative.leaky_relu(t1)
-        == ActivationDerivative.leaky_relu(t2).gpu()
-    )
-    assert ActivationDerivative.relu(t1) == ActivationDerivative.relu(t2).gpu()
-    assert ActivationDerivative.tanh(t1) == ActivationDerivative.tanh(t2).gpu()
-    assert (
-        ActivationDerivative.sigmoid(t1)
-        == ActivationDerivative.sigmoid(t2).gpu()
-    )
-
-    print("Derivatives of `softmax` and `log_softmax` left to implement")
-
-    # print(ActivationDerivative.softmax(t1))
-    # print(ActivationDerivative.softmax(t2))
-
-    # print(Activation.log_softmax(t1))
-    # print(Activation.log_softmax(t2))
