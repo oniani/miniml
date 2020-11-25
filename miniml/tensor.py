@@ -249,11 +249,29 @@ class Tensor:
         return self._data
 
     @data.setter
-    def data(self, other: Union[List, np.ndarray, cl_array.Array]) -> None:
+    def data(self, new_data: Union[List, np.ndarray, cl_array.Array]) -> None:
         """Set the data inside of a tensor."""
 
-        # TODO: Need the checks!
-        self._data = other
+        if isinstance(new_data, list):
+            self._data: np.ndarray = np.array(new_data, dtype=np.float32)
+            self._gpu: bool = False
+
+        elif isinstance(data, np.ndarray):
+            if data.dtype != np.dtype("float32"):
+                self._data: np.ndarray = data.astype(np.float32)
+            else:
+                self._data: np.ndarray = data
+
+            self._gpu: bool = False
+
+        elif isinstance(data, cl_array.Array):
+            self._data: cl_array.Array = data
+            self._gpu = True
+
+        else:
+            raise TypeError(
+                f"Expected `np.ndarray` or `list`, got `{type(data)}`"
+            )
 
     @property
     def T(self) -> Tensor:
@@ -267,13 +285,14 @@ class Tensor:
 
         return self._data.dtype
 
+    @property
     def flags(self) -> Tuple:
         """Return an object with attributes `c_contiguous`, `f_contiguous` and
            `forc`, which may be used to query contiguity properties in analogy
            to `numpy.ndarray.flags`.
         """
 
-        self._data.size
+        return self._data.size
 
     @property
     def ndim(self) -> int:
@@ -305,6 +324,10 @@ class Tensor:
 
         self._data.size
 
+
+class Ops:
+    """Tensor operations."""
+
     @staticmethod
     def dot(m1: Tensor, m2: Tensor) -> Tensor:
         """Returns a dot product of two tensors."""
@@ -333,21 +356,36 @@ class Tensor:
         return Tensor(np.full(shape, val))
 
     @staticmethod
-    def where(cond: Tensor, fst: Scalar, snd: Scalar) -> Tensor:
+    def where(
+        cond: Tensor, fst: [Tensor, Scalar], snd: [Tensor, Scalar]
+    ) -> Tensor:
         """Fill the array with scalar."""
 
         if cond._gpu:
-            shape = cond._data.shape
+            if not isinstance(fst, Tensor):
+                shape = cond._data.shape
+                return Tensor(
+                    cl_array.if_positive(
+                        cond._data,
+                        cl_array.empty(QUEUE, shape, dtype=np.float32).fill(
+                            fst
+                        ),
+                        cl_array.empty(QUEUE, shape, dtype=np.float32).fill(
+                            snd
+                        ),
+                    ),
+                    gpu=True,
+                )
+
             return Tensor(
-                cl_array.if_positive(
-                    cond._data,
-                    cl_array.empty(QUEUE, shape, dtype=np.float32).fill(fst),
-                    cl_array.empty(QUEUE, shape, dtype=np.float32).fill(snd),
-                ),
+                cl_array.if_positive(cond._data, fst._data, snd._data),
                 gpu=True,
             )
 
-        return Tensor(np.where(cond._data, fst, snd))
+        if isinstance(fst, int) or isinstance(fst, float):
+            return Tensor(np.where(cond._data, fst, snd))
+
+        return Tensor(np.where(cond._data, fst._data, snd._data))
 
     @staticmethod
     def reshape(t: Tensor, shape: Tuple) -> Tensor:
@@ -356,7 +394,7 @@ class Tensor:
         if t._gpu:
             return Tensor(cl_array.reshape(t._data, shape), gpu=True)
 
-        return Tensor(np.reshape(t._data, shape), gpu=False)
+        return Tensor(np.reshape(t._data, shape))
 
     @staticmethod
     def log(t: Tensor) -> Tensor:
@@ -386,8 +424,22 @@ class Tensor:
         return Tensor(np.exp(t._data))
 
     @staticmethod
-    def maximum(t: Tensor, val: Tensor) -> Tensor:
+    def maximum(t: Tensor, val: Union[Tensor, Scalar]) -> Tensor:
         """Returns the maximum of a tensor."""
+
+        if not isinstance(val, Tensor):
+            if t._gpu:
+                return Tensor(
+                    cl_array.maximum(
+                        t._data,
+                        cl_array.empty(QUEUE, t.shape, dtype=np.float32).fill(
+                            val
+                        ),
+                    ),
+                    gpu=True,
+                )
+
+            return Tensor(np.maximum(t._data, val))
 
         if t._gpu or val._gpu:
             return Tensor(cl_array.maximum(t._data, val._data), gpu=True)
@@ -395,13 +447,75 @@ class Tensor:
         return Tensor(np.maximum(t._data, val._data))
 
     @staticmethod
-    def minimum(t: Tensor, val: Tensor) -> Tensor:
+    def minimum(t: Tensor, val: Union[Tensor, Scalar]) -> Tensor:
         """Returns the minimum of a tensor."""
 
-        if t._gpu or val._gpu:
+        if not isinstance(val, Tensor):
+            if t._gpu:
+                return Tensor(
+                    cl_array.minimum(
+                        t._data,
+                        cl_array.empty(QUEUE, t.shape, dtype=np.float32).fill(
+                            val
+                        ),
+                    ),
+                    gpu=t._gpu,
+                )
+
+            return Tensor(np.minimum(t._data, val))
+
+        if t._gpu:
             return Tensor(cl_array.minimum(t._data, val._data), gpu=True)
 
         return Tensor(np.minimum(t._data, val._data))
+
+    @staticmethod
+    def power(t: Tensor, exponent: Union[float, int, Tensor]) -> Tensor:
+        """Draw random samples from a normal (Gaussian) distribution."""
+
+        if not isinstance(exponent, Tensor):
+            return Tensor(t._data ** exponent, gpu=t._gpu)
+
+        return Tensor(t._data ** exponent._data, gpu=t._gpu or exponent._gpu)
+
+    @staticmethod
+    def square(t: Tensor) -> Tensor:
+        """Return a square-valued tensor."""
+
+        return Tensor(t._data ** 2, gpu=t._gpu)
+
+    @staticmethod
+    def transpose(t: Tensor) -> Tensor:
+        """Returns a transpose of a tensor."""
+
+        if t._gpu:
+            return Tensor(cl_array.transpose(t._data), gpu=True)
+
+        return Tensor(np.transpose(t._data), gpu=t._gpu)
+
+    @staticmethod
+    def zeros(shape: Tuple = (1, 1), gpu=False) -> Tensor:
+        """Return a new tensor of given shape and type, filled with zeros."""
+
+        if gpu:
+            return Tensor(cl_array.zeros(QUEUE, shape, np.float32), gpu=True)
+
+        return Tensor(np.zeros(shape, dtype=np.float32))
+
+    @staticmethod
+    def zeros_like(t: Tensor, gpu=False) -> Tensor:
+        """Return a tensor of zeros with the same shape and type as a given
+           tensor.
+        """
+
+        if gpu:
+            return Tensor(cl_array.zeros_like(t._data), gpu=True)
+
+        return Tensor(np.zeros_like(t._data, dtype=np.float32))
+
+
+class Random:
+    """Random number generation for tensors."""
 
     @staticmethod
     def normal(shape: Tuple = (1, 1), gpu=False) -> Tensor:
@@ -416,15 +530,6 @@ class Tensor:
             )
 
         return Tensor(np.random.normal(size=shape).astype(np.float32))
-
-    @staticmethod
-    def power(t: Tensor, exponent: Union[float, int, Tensor]) -> Tensor:
-        """Draw random samples from a normal (Gaussian) distribution."""
-
-        if isinstance(exponent, Tensor):
-            return Tensor(t._data ** exponent._data, gpu=t._gpu)
-
-        return Tensor(t._data ** exponent, gpu=t._gpu)
 
     @staticmethod
     def rand(shape: Tuple = (1, 1), gpu=False) -> Tensor:
@@ -453,51 +558,9 @@ class Tensor:
             np.random.uniform(min, max, size=shape).astype(np.float32)
         )
 
-    @staticmethod
-    def zeros(shape: Tuple = (1, 1), gpu=False) -> Tensor:
-        """Return a new tensor of given shape and type, filled with zeros."""
 
-        if gpu:
-            return Tensor(cl_array.zeros(QUEUE, shape, np.float32), gpu=True)
-
-        return Tensor(np.zeros(shape, dtype=np.float32))
-
-    @staticmethod
-    def zeros_like(t: Tensor, gpu=False) -> Tensor:
-        """Return a tensor of zeros with the same shape and type as a given
-           tensor.
-        """
-
-        if gpu:
-            return Tensor(cl_array.zeros_like(t._data), gpu=True)
-
-        return Tensor(np.zeros_like(t._data, dtype=np.float32))
-
-    @staticmethod
-    def zeros(shape: Tuple = (1, 1), gpu=False) -> Tensor:
-        """Return a new tensor of given shape and type, filled with zeros."""
-
-        if gpu:
-            return Tensor(cl_array.zeros(QUEUE, shape, np.float32), gpu=True)
-
-        return Tensor(np.zeros(shape, dtype=np.float32))
-
-    @staticmethod
-    def zeros_like(t: Tensor) -> Tensor:
-        """Return a tensor of zeros with the same shape and type as a given
-           tensor.
-        """
-
-        if t._gpu:
-            return Tensor(cl_array.zeros_like(t._data), gpu=True)
-
-        return Tensor(np.zeros_like(t._data, dtype=np.float32))
-
-    @staticmethod
-    def square(t: Tensor) -> Tensor:
-        """Return a square-valued tensor."""
-
-        return Tensor(t._data ** 2, gpu=t._gpu)
+class Reduce:
+    """Reduction operations on tensors."""
 
     @staticmethod
     def max(t: Tensor) -> float:
@@ -525,3 +588,12 @@ class Tensor:
             return cl_array.sum(t._data).get().flat[0]
 
         return np.sum(t._data)
+
+    @staticmethod
+    def mean(t: Tensor) -> float:
+        """Returns the mean of a tensor."""
+
+        if t._gpu:
+            return cl_array.sum(t._data).get().flat[0] / t._data.size
+
+        return np.mean(t._data)
