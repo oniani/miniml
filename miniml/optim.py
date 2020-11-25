@@ -8,7 +8,7 @@ Description: An implementation of the glorious Adam optimizer based on the
 """
 
 from typing import Callable, Dict, List
-from tensor import Tensor  # type: ignore
+from miniml.tensor import Tensor  # type: ignore
 
 import numpy as np
 

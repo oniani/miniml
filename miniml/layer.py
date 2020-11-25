@@ -1,12 +1,7 @@
 # type: ignore
-#
-# The API presented at
-#   https://quantdare.com/create-your-own-deep-learning-framework-using-numpy/
-#
-# seems really nice.
 
 import numpy as np
-import tensor as T
+import miniml.tensor as T
 
 from typing import Callable, Dict, List, Tuple, Union
 from abc import ABC, abstractmethod
@@ -43,24 +38,46 @@ class Linear(Layer):
     """A linear layer."""
 
     def __init__(self, in_dim: int, out_dim: int, gpu: bool = False) -> None:
-        """Initilize variables."""
+        """Initilize variables.
+
+        Parameters
+        ----------
+        in_dim  : Number of input dimensions.
+        out_dim : Number of output dimensions.
+        gpu     : Specifies whether the computations are performed on GPU.
+        """
 
         self._weights: T.Tensor = T.Random.rand((in_dim, out_dim), gpu)
         self._biases: T.Tensor = T.Tensor.rand(out_dim, gpu)
         self._gpu: bool = gpu
 
     def forward(self, x: T.Tensor) -> T.Tensor:
-        """Perform a forward pass."""
+        """Perform a forward pass.
+        
+        Parameters
+        ----------
+        x : Data (activated or not) of the previous layer
+        """
 
         self._prev: T.Tensor = x
         return T.Tensor.dot(self._weights, x) + self._bias
 
     def backward(self, dF: T.Tensor) -> T.Tensor:
-        """Perform a backpropagation."""
+        """Perform a backpropagation.
 
+        Parameters
+        ----------
+        dF: upper layer gradient
+        """
+
+        # Derivative of the cost function w.r.t. W
         self._dW: T.Tensor = T.Tensor.dot(dF, self._prev.T)
+
+        # Derivative of the cost function w.r.t. b
         self._db: T.Tensor = T.Tensor(np.mean(dF, axis=1, keepdims=True))
-        return T.Tensor.dot(self._weights.T, dA)
+
+        # Apply the chain rule
+        return T.Tensor.dot(self._weights.T, dF)
 
     def optimize(self, lr: float = 1e-3) -> None:
         """Perform an optimization step."""

@@ -357,9 +357,15 @@ class Tensor:
 
     @property
     def size(self) -> Tuple:
-        """The number of meaningful entries in the array."""
+        """The number of meaningful entries in the tensor."""
 
         self._data.size
+
+    @property
+    def strides(self) -> Tuple:
+        """The strides of the tensor."""
+
+        self._data.strides
 
 
 class Ops:
@@ -604,8 +610,6 @@ class Random:
 class Reduce:
     """Reduction operations on tensors."""
 
-    # TODO: support `axis` parameter
-
     @staticmethod
     def max(t: Tensor) -> float:
         """Returns the maximum of a tensor."""
@@ -620,7 +624,7 @@ class Reduce:
         """Returns the minimum of a tensor."""
 
         if t._gpu:
-            return cl_array.max(t._data).get().flat[0]
+            return cl_array.min(t._data).get().flat[0]
 
         return Tensor(np.min(t._data))
 

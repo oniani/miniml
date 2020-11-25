@@ -1,6 +1,6 @@
 # type: ignore
 
-import tensor as T
+import miniml.tensor as T
 
 # TODO: Consider using an abstract class for loss functions as well
 

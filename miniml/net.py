@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from layer import Layer, Linear, Sigmoid
+from miniml.layer import Layer, Linear, Sigmoid
 from typing import List
-import tensor as T
+import miniml.tensor as T
 
 
 class Net:
