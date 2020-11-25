@@ -16,6 +16,7 @@ import numpy as np
 import pyopencl as cl
 import pyopencl.array as cl_array
 import pyopencl.clmath as cl_math
+import pyopencl.bitonic_sort as cl_sort
 
 
 # Initialize the context
@@ -63,6 +64,29 @@ class Tensor:
         """A representation of a tensor."""
 
         return f"Tensor(\n    data={self._data},\n    gpu={self._gpu}\n)"
+
+    def __iter__(self) -> Union[np.ndarray, cl.array.Array]:
+        """An iterator for tensors."""
+
+        for i in self._data:
+            yield i
+
+    def __len__(self) -> int:
+        """Return a length of tensors."""
+
+        return len(self._data)
+
+    def __getitem__(self, idx: int) -> Union[np.ndarray, cl.array.Array]:
+        """Return a length of tensors."""
+
+        return self._data[idx]
+
+    def __setitem__(
+        self, idx: int, item: Union[np.ndarray, cl.array.Array]
+    ) -> None:
+        """Return a length of tensors."""
+
+        self._data[idx] = item
 
     def cpu(self) -> Tensor:
         """Load the data into CPU."""
@@ -242,6 +266,18 @@ class Tensor:
         """Returns a view of the array with dimensions of length 1 removed."""
 
         return Tensor(self._data.squeeze(), gpu=self._gpu)
+
+    def sort(self) -> None:
+        """Sort a tensor.
+
+        Performs parallel sorting when put on the GPU.        
+        """
+
+        if isinstance(self._data, cl.array.Array):
+            sorter = cl_sort.BitonicSort(CONTEXT)
+            sorter(self._data)
+        else:
+            self._data.sort()
 
     @property
     def data(self) -> Union[np.ndarray, cl_array.Array]:
@@ -471,7 +507,7 @@ class Ops:
 
     @staticmethod
     def power(t: Tensor, exponent: Union[float, int, Tensor]) -> Tensor:
-        """Draw random samples from a normal (Gaussian) distribution."""
+        """Raise all elements of the tensor to the specified power."""
 
         if not isinstance(exponent, Tensor):
             return Tensor(t._data ** exponent, gpu=t._gpu)
@@ -518,7 +554,7 @@ class Random:
     """Random number generation for tensors."""
 
     @staticmethod
-    def normal(shape: Tuple = (1, 1), gpu=False) -> Tensor:
+    def normal(shape: Union[Tuple, int] = (1, 1), gpu=False) -> Tensor:
         """Draw random samples from a normal (Gaussian) distribution."""
 
         if gpu:
@@ -532,17 +568,23 @@ class Random:
         return Tensor(np.random.normal(size=shape).astype(np.float32))
 
     @staticmethod
-    def rand(shape: Tuple = (1, 1), gpu=False) -> Tensor:
+    def rand(shape: Union[Tuple, int] = (1, 1), gpu=False) -> Tensor:
         """Returns a tensor of random values in a given shape."""
 
         if gpu:
             return Tensor(cl.clrandom.rand(QUEUE, shape, np.float32), gpu=True)
 
-        return Tensor(np.random.rand(*shape).astype(np.float32))
+        if isinstance(shape, tuple):
+            return Tensor(np.random.rand(*shape).astype(np.float32))
+
+        return Tensor(np.random.rand(shape).astype(np.float32))
 
     @staticmethod
     def uniform(
-        shape: Tuple = (1, 1), min: float = 0.0, max: float = 1.0, gpu=False
+        shape: Union[Tuple, int] = (1, 1),
+        min: float = 0.0,
+        max: float = 1.0,
+        gpu=False,
     ) -> Tensor:
         """Draw samples from a uniform distribution."""
 
@@ -561,6 +603,8 @@ class Random:
 
 class Reduce:
     """Reduction operations on tensors."""
+
+    # TODO: support `axis` parameter
 
     @staticmethod
     def max(t: Tensor) -> float:

@@ -3,8 +3,8 @@
 import numpy as np
 
 from layer import Layer, Linear, Sigmoid
-from tensor import Tensor
 from typing import List
+import tensor as T
 
 
 class Net:
@@ -27,7 +27,7 @@ class Net:
 
         self._layers.append(layer)
 
-    def predict(self, x: Tensor) -> Tensor:
+    def predict(self, x: T.Tensor) -> T.Tensor:
         """Make a prediction."""
 
         for layer in self._layers:
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     np.random.seed(57)
 
     # Dummy data
-    t = Tensor(np.random.uniform(-100, 100, (3, 4, 3)))
+    t = T.Random.uniform((3, 4, 3), -100, 100)
 
     # The model
     model = Net()

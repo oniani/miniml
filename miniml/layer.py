@@ -42,11 +42,12 @@ class Layer(ABC):
 class Linear(Layer):
     """A linear layer."""
 
-    def __init__(self, in_dim: int, out_dim: int) -> None:
+    def __init__(self, in_dim: int, out_dim: int, gpu: bool = False) -> None:
         """Initilize variables."""
 
-        self._weights: T.Tensor = T.Tensor(np.random.randn(in_dim, out_dim))
-        self._biases: T.Tensor = T.Tensor(np.random.randn(out_dim))
+        self._weights: T.Tensor = T.Random.rand((in_dim, out_dim), gpu)
+        self._biases: T.Tensor = T.Tensor.rand(out_dim, gpu)
+        self._gpu: bool = gpu
 
     def forward(self, x: T.Tensor) -> T.Tensor:
         """Perform a forward pass."""
@@ -57,7 +58,7 @@ class Linear(Layer):
     def backward(self, dF: T.Tensor) -> T.Tensor:
         """Perform a backpropagation."""
 
-        self._dW: T.Tensor = T.Tensor(np.dot(dF, self._prev.T))
+        self._dW: T.Tensor = T.Tensor.dot(dF, self._prev.T)
         self._db: T.Tensor = T.Tensor(np.mean(dF, axis=1, keepdims=True))
         return T.Tensor.dot(self._weights.T, dA)
 
