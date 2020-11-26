@@ -1,125 +1,150 @@
 # type: ignore
+
 """
 Author: David Oniani
 
-A collection of activation functions and their derivatives. All functions are
-implemented using in-place changes for the efficiency and speed.
+Description:
+    A collection of activation functions and their derivatives.
 """
 
 import numpy as np
 import miniml.tensor as T
 
 
-class A:
-    """A collection of activation functions."""
+class LeakyReLU:
+    def __init__(self, out_dim: int = 3, alpha: float = 1e-2) -> None:
+        """Initilize variables for the LeakyReLU activation function."""
 
-    @staticmethod
-    def leaky_relu(z: T.Tensor, alpha: float = 1e-2) -> T.Tensor:
-        """The leaky rectified linear activation function (numerically
-           stable).
-        """
+        self._units: int = out_dim
+        self._alpha: float = alpha
 
-        return ((z > 0) * z) + ((z <= 0) * z * alpha)
+    def forward(self, x: T.Tensor) -> T.Tensor:
+        """Perform a forward pass (numerically stable)."""
 
-    @staticmethod
-    def relu(z: T.Tensor) -> T.Tensor:
-        """The rectified linear activation function (numerically stable)."""
+        self._saved: T.Tensor = T.Ops.where(x > 0, x, x * self._alpha)
+        return self._saved
 
-        return T.Ops.maximum(z, 0)
+    def backward(self, dF: T.Tensor) -> T.Tensor:
+        """Perform a backpropagation.
 
-    @staticmethod
-    def tanh(z: T.Tensor) -> T.Tensor:
-        """The tanh activation function (numerically stable)."""
-
-        return T.Ops.tanh(z)
-
-    @staticmethod
-    def sigmoid(z: T.Tensor) -> T.Tensor:
-        """The sigmoid activation function (numerically stable)."""
-
-        if (z >= 0).all():
-            return 1 / (1 + T.Ops.exp(-z))
-
-        return 1 / (1 + T.Ops.exp(z))
-
-    @staticmethod
-    def softmax(z: T.Tensor) -> T.Tensor:
-        """The softmax activation function (numerically stable)."""
-
-        exp: T.Tensor = T.Ops.exp(z - T.Reduce.max(z))
-        return exp / T.Reduce.sum(exp)
-
-    @staticmethod
-    def log_softmax(z: T.Tensor) -> T.Tensor:
-        """The log softmax activation function (numerically stable)."""
-
-        exp: T.Tensor = T.Ops.exp(z - T.Reduce.max(z))
-        return T.Ops.log(exp / T.Reduce.sum(exp))
-
-
-class AD:
-    """A collection of activation function derivatives."""
-
-    @staticmethod
-    def leaky_relu(z: T.Tensor, alpha: float = 0.01) -> T.Tensor:
-        """Derivative of the leaky rectified linear activation function.
-        
-        There are three cases:
-           (1) if x < 0, derivative is x * alpha
+        Gradient computation:
+           (1) if x < 0, derivative is alpha
            (2) if x > 0, derivative is 1
            (3) if x = 0, derivative is not well-defined, but can treat as 1
         """
 
-        return T.Ops.where(z < 0, z * alpha, 1)
+        return dF * T.Ops.where(self._saved < 0, self._alpha, 1)
 
-    @staticmethod
-    def relu(z: T.Tensor) -> T.Tensor:
-        """Derivative of the rectified linear activation function.
-        
-        There are three cases:
+
+class ReLU:
+    def __init__(self, out_dim: int = 3) -> None:
+        """Initilize variables for the ReLU activation function."""
+
+        self._units: int = out_dim
+
+    def forward(self, x: T.Tensor) -> T.Tensor:
+        """Perform a forward pass (numerically stable)."""
+
+        self._saved: T.Tensor = T.Ops.maximum(x, 0)
+        return self._saved
+
+    def backward(self, dF: T.Tensor) -> T.Tensor:
+        """Perform a backpropagation.
+
+        Gradient computation:
            (1) if x < 0, derivative is 0
            (2) if x > 0, derivative is 1
            (3) if x = 0, derivative is not well-defined, but can treat as 1
         """
 
-        return T.Ops.where(z < 0, 0, 1)
+        return dF * T.Ops.where(self._saved < 0, 0, 1)
 
-    @staticmethod
-    def tanh(z: T.Tensor) -> T.Tensor:
-        """Derivative of the tanh activation function.
-        
-        tanh(x) = (e^x - e^{-x}) / (e^x + e^{-x})
 
-        tanh'(x) = ((e^x + e^{-x})^2 - (e^x - e^{-x})^2) / (e^x + e^{-x})^2
-                 = 1 - ((e^x - e^{-x}) / (e^x + e^{-x}))^2
-                 = 1 - tanh^2(x)
+class Tanh:
+    def __init__(self, out_dim: int = 3) -> None:
+        """Initilize variables for the Tanh activation function."""
+
+        self._units: int = out_dim
+
+    def forward(self, x: T.Tensor) -> T.Tensor:
+        """Perform a forward pass (numerically stable)."""
+
+        self._saved: T.Tensor = T.Ops.tanh(x)
+        return self._saved
+
+    def backward(self, dF: T.Tensor) -> T.Tensor:
+        """Perform a backpropagation.
+
+        Gradient computation:
+            tanh(x) = (e^x - e^{-x}) / (e^x + e^{-x})
+
+            tanh'(x) = ((e^x + e^{-x})^2 - (e^x - e^{-x})^2) / (e^x + e^{-x})^2
+                     = 1 - ((e^x - e^{-x}) / (e^x + e^{-x}))^2
+                     = 1 - tanh^2(x)
         """
 
-        return 1 - T.Ops.square(T.Ops.tanh(z))
+        return dF * (1 - T.Ops.square(self._saved))
 
-    @staticmethod
-    def sigmoid(z: T.Tensor) -> T.Tensor:
-        """Derivative of the sigmoid activation function.
-        
-        If the sigmoid function is denoted as s, it can be shown that the
-        derivative is computed as s * (1 - s).
+
+class Sigmoid:
+    def __init__(self, out_dim: int = 3) -> None:
+        """Initilize variables for the Sigmoid activation function."""
+
+        self._units: int = out_dim
+
+    def forward(self, x: T.Tensor) -> T.Tensor:
+        """Perform a forward pass (numerically stable)."""
+
+        fst: T.Tensor = 1 / (1 + T.Ops.exp(-x))
+        pexp: T.Tensor = T.Ops.exp(x)
+        snd: T.Tensor = pexp / (1 + pexp)
+        self._saved: T.Tensor = T.Ops.where(x >= 0, fst, snd)
+        return self._saved
+
+    def backward(self, dF: T.Tensor) -> T.Tensor:
+        """Perform a backpropagation.
+
+        Gradient computation:
+            If the sigmoid function is denoted as s, it can be shown that the
+            derivative is computed as s * (1 - s).
         """
 
-        if (z >= 0).all():
-            s = 1 / (1 + T.Ops.exp(-z))
-        else:
-            s = 1 / (1 + T.Ops.exp(z))
+        return dF * self._saved * (1 - self._saved)
 
-        return s * (1 - s)
 
-    @staticmethod
-    def softmax(z: T.Tensor) -> T.Tensor:
-        """Derivative of the softmax activation function."""
+class Softmax:
+    def __init__(self, out_dim: int = 3) -> None:
+        """Initilize variables for the Softmax activation function."""
+
+        self._units: int = out_dim
+
+    def forward(self, x: T.Tensor) -> T.Tensor:
+        """Perform a forward pass (numerically stable)."""
+
+        exp: T.Tensor = T.Ops.exp(x - T.Reduce.max(x))
+        self._saved: T.Tensor = exp / T.Reduce.sum(exp)
+        return self._saved
+
+    def backward(self, dF: T.Tensor) -> T.Tensor:
+        """Perform a backpropagation."""
 
         raise NotImplementedError
 
-    @staticmethod
-    def log_softmax(z: T.Tensor) -> T.Tensor:
-        """Derivative of the log softmax activation function."""
+
+class LogSoftmax:
+    def __init__(self, out_dim: int = 3) -> None:
+        """Initilize variables for the LogSoftmax activation function."""
+
+        self._units: int = out_dim
+
+    def forward(self, x: T.Tensor) -> T.Tensor:
+        """Perform a forward pass (numerically stable)."""
+
+        exp: T.Tensor = T.Ops.exp(x - T.Reduce.max(x))
+        self._saved: T.Tensor = T.Ops.log(exp / T.Reduce.sum(exp))
+        return self._saved
+
+    def backward(self, dF: T.Tensor) -> T.Tensor:
+        """Perform a backpropagation."""
 
         raise NotImplementedError
