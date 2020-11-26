@@ -1,9 +1,9 @@
 # type: ignore
 
 import numpy as np
+
 import miniml.tensor as T
 
-from typing import Callable, Dict, List, Tuple, Union
 from abc import ABC, abstractmethod
 
 
@@ -17,13 +17,13 @@ class Layer(ABC):
         pass
 
     @abstractmethod
-    def forward(self, x):
+    def forward(self, x: T.Tensor):
         """Perform a forward pass."""
 
         pass
 
     @abstractmethod
-    def backward(self, dF):
+    def backward(self, dF: T.Tensor):
         """Perform a backpropagation."""
 
         pass

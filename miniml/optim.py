@@ -7,10 +7,12 @@ Description: An implementation of the glorious Adam optimizer based on the
              https://arxiv.org/abs/1412.6980.
 """
 
-from typing import Callable, Dict, List
-from miniml.tensor import Tensor  # type: ignore
 
 import numpy as np
+
+from typing import Callable
+
+import miniml.tensor as T
 
 
 class Adam:
@@ -20,7 +22,7 @@ class Adam:
         self,
         stochastic_function: Callable,
         grad_function: Callable,
-        params: List[Dict[str, str]],
+        params: list[dict[str, str]],
         lr: float = 1e-3,
         beta_1: float = 0.9,
         beta_2: float = 0.999,
@@ -43,6 +45,7 @@ class Adam:
         self._eps: float = eps
         self._stochastic_function: Callable = stochastic_function
         self._grad_function: Callable = grad_function
+        self._paramas: list[dict[str, str]] = params
 
     def step(self) -> None:
         """Update the state of the optimizer and its parameters."""
@@ -83,11 +86,11 @@ class Adam:
         return theta_0  # type: ignore
 
 
-def fun(x):
+def fun(x: T.Tensor):
     return x * x - 4 * x + 4
 
 
-def grad_fun(x):
+def grad_fun(x: T.Tensor):
     return 2 * x - 4
 
 

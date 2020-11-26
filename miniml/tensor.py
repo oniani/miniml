@@ -8,8 +8,7 @@ TODO: Implement the reverse mode autodiff to compute gradients. It will have
 """
 
 from __future__ import annotations
-
-from typing import List, Tuple, Union
+from typing import Union
 
 import numpy as np
 
@@ -25,16 +24,16 @@ CONTEXT: cl.Context = cl.create_some_context(answers=[0, 1])
 # Instantiate a queue
 QUEUE: cl.CommandQueue = cl.CommandQueue(CONTEXT)
 
+# Scalar type
+Scalar = Union[float, int, np.float32]
+
 
 class Tensor:
     """A tensor class. Computations can be delegated to the GPU."""
 
-    # Types to be used inside the class
-    Data = Union[List, np.ndarray, clarray.Array]
-    Scalar = Union[float, int]
-    UTS = Union["Tensor", Scalar]
-
-    def __init__(self, data: Data, gpu: bool = False) -> None:
+    def __init__(
+        self, data: Union[cl.array.Array, list, np.ndarray], gpu: bool = False
+    ) -> None:
         """Initialize variables."""
 
         self._gpu: bool = gpu
@@ -42,23 +41,80 @@ class Tensor:
         if isinstance(data, list):
             self._data: np.ndarray = np.array(data, dtype=np.float32)
 
+            if self._gpu:
+                self._data = clarray.to_device(QUEUE, self._data)
+
         elif isinstance(data, np.ndarray):
             if data.dtype != np.dtype("float32"):
                 self._data: np.ndarray = data.astype(np.float32)
             else:
                 self._data: np.ndarray = data
 
-        elif isinstance(data, clarray.Array):
-            self._data: clarray.Array = data
-            self._gpu = True
+            if self._gpu:
+                self._data = clarray.to_device(QUEUE, self._data)
+
+        elif isinstance(data, cl.array.Array):
+            self._data: cl.array.Array = data
+            self._gpu: bool = True
 
         else:
             raise TypeError(
-                f"Expected `np.ndarray` or `list`, got `{type(data)}`"
+                "Expected `list`, `np.ndarray`, or `pyopencl.array.Array` got "
+                f"`{type(data)}`"
             )
 
-        if self._gpu and not isinstance(self._data, clarray.Array):
+    @property
+    def data(self) -> Union[np.ndarray, cl.array.Array]:
+        """The data inside of a tensor."""
+
+        return self._data
+
+    @data.setter
+    def data(self, data: Union[cl.array.Array, list, np.ndarray]) -> None:
+        """Set the data inside of a tensor."""
+
+        if isinstance(data, list):
+            self._data: np.ndarray = np.array(data, dtype=np.float32)
+
+            if self._gpu:
+                self._data = clarray.to_device(QUEUE, self._data)
+
+        elif isinstance(data, np.ndarray):
+            if data.dtype != np.dtype("float32"):
+                self._data: np.ndarray = data.astype(np.float32)
+            else:
+                self._data: np.ndarray = data
+
+            if self._gpu:
+                self._data = clarray.to_device(QUEUE, self._data)
+
+        elif isinstance(data, cl.array.Array):
+            self._data: cl.array.Array = data
+            self._gpu: bool = True
+
+        else:
+            raise TypeError(
+                "Expected `list`, `np.ndarray`, or `pyopencl.array.Array` got "
+                f"`{type(data)}`"
+            )
+
+    def cpu(self) -> Tensor:
+        """Load the data into CPU."""
+
+        if self._gpu:
+            self._data = self._data.get()
+            self._gpu = False
+
+        return self
+
+    def gpu(self) -> Tensor:
+        """Load the data into GPU."""
+
+        if not self._gpu:
             self._data = clarray.to_device(QUEUE, self._data)
+            self._gpu = True
+
+        return self
 
     def __repr__(self) -> str:
         """A representation of a tensor."""
@@ -88,25 +144,7 @@ class Tensor:
 
         self._data[idx] = item
 
-    def cpu(self) -> Tensor:
-        """Load the data into CPU."""
-
-        if self._gpu:
-            self._data = self._data.get()
-            self._gpu = False
-
-        return self
-
-    def gpu(self) -> Tensor:
-        """Load the data into GPU."""
-
-        if not self._gpu:
-            self._data = clarray.to_device(QUEUE, self._data)
-            self._gpu = True
-
-        return self
-
-    def __add__(self, other: UTS) -> Tensor:
+    def __add__(self, other: Union[Tensor, Scalar]) -> Tensor:
         """Add two tensors."""
 
         if not isinstance(other, Tensor):
@@ -116,7 +154,7 @@ class Tensor:
 
     __radd__ = __add__
 
-    def __iadd__(self, other: UTS) -> Tensor:
+    def __iadd__(self, other: Union[Tensor, Scalar]) -> Tensor:
         """Add two tensors in-place."""
 
         if not isinstance(other, Tensor):
@@ -126,7 +164,7 @@ class Tensor:
 
         return self
 
-    def __sub__(self, other: Union[Tenspr, float, int]) -> Tensor:
+    def __sub__(self, other: Union[Tensor, Scalar]) -> Tensor:
         """Subtract two tensors."""
 
         if not isinstance(other, Tensor):
@@ -136,7 +174,7 @@ class Tensor:
 
     __rsub__ = __sub__
 
-    def __isub__(self, other: UTS) -> Tensor:
+    def __isub__(self, other: Union[Tensor, Scalar]) -> Tensor:
         """Subtract two tensors in-place."""
 
         if not isinstance(other, Tensor):
@@ -146,7 +184,7 @@ class Tensor:
 
         return self
 
-    def __mul__(self, other: UTS) -> Tensor:
+    def __mul__(self, other: Union[Tensor, Scalar]) -> Tensor:
         """Multiply two tensors."""
 
         if not isinstance(other, Tensor):
@@ -156,7 +194,7 @@ class Tensor:
 
     __rmul__ = __mul__
 
-    def __imul__(self, other: UTS) -> Tensor:
+    def __imul__(self, other: Union[Tensor, Scalar]) -> Tensor:
         """Multiply two tensors in-place."""
 
         if not isinstance(other, Tensor):
@@ -166,7 +204,7 @@ class Tensor:
 
         return self
 
-    def __truediv__(self, other: UTS) -> Tensor:
+    def __truediv__(self, other: Union[Tensor, Scalar]) -> Tensor:
         """Divide two tensors."""
 
         if not isinstance(other, Tensor):
@@ -176,7 +214,7 @@ class Tensor:
 
     __rtruediv__ = __truediv__
 
-    def __itruediv__(self, other: UTS) -> Tensor:
+    def __itruediv__(self, other: Union[Tensor, Scalar]) -> Tensor:
         """Divide two tensors in-place."""
 
         if not isinstance(other, Tensor):
@@ -186,48 +224,48 @@ class Tensor:
 
         return self
 
-    def __lt__(self, other: UTS) -> Tensor:
-        """Compare two tensors for less than."""
+    def __lt__(self, other: Union[Tensor, Scalar]) -> Tensor:
+        """Less than operation for a tensor and a tensor/scalar."""
 
         if not isinstance(other, Tensor):
             return Tensor(self._data < other, gpu=self._gpu)
 
         return Tensor(self._data < other._data, gpu=self._gpu or other._gpu)
 
-    def __le__(self, other: UTS) -> Tensor:
-        """Compare two tensors for less than or equal."""
+    def __le__(self, other: Union[Tensor, Scalar]) -> Tensor:
+        """Less than or equal operation for a tensor and a tensor/scalar."""
 
         if not isinstance(other, Tensor):
             return Tensor(self._data <= other, gpu=self._gpu)
 
         return Tensor(self._data <= other._data, gpu=self._gpu or other._gpu)
 
-    def __eq__(self, other: UTS) -> Tensor:
-        """Compare two tensors for equality."""
+    def __eq__(self, other: Union[Tensor, Scalar]) -> Tensor:
+        """Equal to operation for a tensor and a tensor/scalar."""
 
         if not isinstance(other, Tensor):
             return Tensor(self._data == other, gpu=self._gpu)
 
         return Tensor(self._data == other._data, gpu=self._gpu or other._gpu)
 
-    def __ne__(self, other: UTS) -> Tensor:
-        """Compare two tensors for inequality."""
+    def __ne__(self, other: Union[Tensor, Scalar]) -> Tensor:
+        """Not equal to operation for a tensor and a tensor/scalar."""
 
         if not isinstance(other, Tensor):
             return Tensor(self._data != other, gpu=self._gpu)
 
         return Tensor(self._data != other._data, gpu=self._gpu or other._gpu)
 
-    def __ge__(self, other: UTS) -> Tensor:
-        """Compare two tensors for greater than."""
+    def __ge__(self, other: Union[Tensor, Scalar]) -> Tensor:
+        """Greater than or equal operation for a tensor and a tensor/scalar."""
 
         if not isinstance(other, Tensor):
             return Tensor(self._data >= other, gpu=self._gpu)
 
         return Tensor(self._data >= other._data, gpu=self._gpu or other._gpu)
 
-    def __gt__(self, other: UTS) -> Tensor:
-        """Compare two tensors for greater than."""
+    def __gt__(self, other: Union[Tensor, Scalar]) -> Tensor:
+        """Greater than operation for a tensor and a tensor/scalar."""
 
         if not isinstance(other, Tensor):
             return Tensor(self._data > other, gpu=self._gpu)
@@ -235,24 +273,24 @@ class Tensor:
         return Tensor(self._data > other._data, gpu=self._gpu or other._gpu)
 
     def __neg__(self) -> Tensor:
-        """Return the negated Tensor."""
+        """Return a negated tensor."""
 
         return Tensor(-self._data, gpu=self._gpu)
 
     def all(self) -> bool:
-        """True if all values of the Tensor are `True`, False otherwise."""
+        """Returns the true value if all values of a tensor are true."""
 
         return self._data.all()
 
     def any(self) -> bool:
-        """True if at least one value of the Tensor is `True`, False otherwise
-        """
+        """Returns the true value if at least one value of a tensor is true."""
 
         return self._data.any()
 
     def view(self, dtype: np.dtype) -> None:
-        """Returns view of array with the same data. If dtype is different from
-           current dtype, the actual bytes of memory will be reinterpreted.
+        """Returns the view of a tensor with the same data. If dtype is
+           different from current dtype, the actual bytes of memory will be
+           reinterpreted.
         """
 
         return Tensor(self._data.view(dtype), gpu=self._gpu)
@@ -263,15 +301,12 @@ class Tensor:
         return Tensor(self._data.astype(dtype), gpu=self._gpu)
 
     def squeeze(self) -> None:
-        """Returns a view of the array with dimensions of length 1 removed."""
+        """Returns a view of the tensor with dimensions of length 1 removed."""
 
         return Tensor(self._data.squeeze(), gpu=self._gpu)
 
     def sort(self) -> None:
-        """Sort a tensor.
-
-        Performs parallel sorting when put on the GPU.        
-        """
+        """Sorts a tensor, uses the parallel bitonic sort when on GPU."""
 
         if self._gpu:
             sorter = clbitonicsort.BitonicSort(CONTEXT)
@@ -280,50 +315,19 @@ class Tensor:
             self._data.sort()
 
     @property
-    def data(self) -> Union[np.ndarray, clarray.Array]:
-        """The data inside of a tensor."""
-
-        return self._data
-
-    @data.setter
-    def data(self, new_data: Union[List, np.ndarray, clarray.Array]) -> None:
-        """Set the data inside of a tensor."""
-
-        if isinstance(new_data, list):
-            self._data: np.ndarray = np.array(new_data, dtype=np.float32)
-            self._gpu: bool = False
-
-        elif isinstance(data, np.ndarray):
-            if data.dtype != np.dtype("float32"):
-                self._data: np.ndarray = data.astype(np.float32)
-            else:
-                self._data: np.ndarray = data
-
-            self._gpu: bool = False
-
-        elif isinstance(data, clarray.Array):
-            self._data: clarray.Array = data
-            self._gpu = True
-
-        else:
-            raise TypeError(
-                f"Expected `np.ndarray` or `list`, got `{type(data)}`"
-            )
-
-    @property
     def T(self) -> Tensor:
         """Returns a transpose of a tensor."""
 
         return Tensor(self._data.T, gpu=self._gpu)
 
     @property
-    def dtype(self) -> int:
+    def dtype(self) -> np.dtype:
         """The data type of a tensor."""
 
         return self._data.dtype
 
     @property
-    def flags(self) -> Tuple:
+    def flags(self) -> Union[cl.compyte.array.ArrayFlags, np.flagsobj]:
         """Return an object with attributes `c_contiguous`, `f_contiguous` and
            `forc`, which may be used to query contiguity properties in analogy
            to `numpy.ndarray.flags`.
@@ -344,19 +348,19 @@ class Tensor:
         return self._data.nbytes
 
     @property
-    def shape(self) -> Tuple:
+    def shape(self) -> tuple[int, ...]:
         """The tuple of lengths of each dimension in the tensor."""
 
         return self._data.shape
 
     @property
-    def strides(self) -> Tuple:
-        """Tuple of bytes to step in each dimension."""
+    def strides(self) -> tuple[int, ...]:
+        """tuple of bytes to step in each dimension."""
 
         self._data.strides
 
     @property
-    def size(self) -> Tuple:
+    def size(self) -> int:
         """The number of meaningful entries in the tensor."""
 
         self._data.size
@@ -381,7 +385,7 @@ class Ops:
         return Tensor(t._data.ravel(), gpu=t._gpu)
 
     @staticmethod
-    def fill(shape: Tuple, val: Union[float, int], gpu=False) -> Tensor:
+    def fill(shape: tuple[int, ...], val: np.float32, gpu=False) -> Tensor:
         """Fill the tensor with scalar."""
 
         if gpu:
@@ -393,7 +397,9 @@ class Ops:
         return Tensor(np.full(shape, val))
 
     @staticmethod
-    def where(cond: Tensor, fst: UTS, snd: UTS) -> Tensor:
+    def where(
+        cond: Tensor, fst: Union[Tensor, Scalar], snd: Union[Tensor, Scalar],
+    ) -> Tensor:
         """Fill the tensor based on a condition."""
 
         if cond._gpu:
@@ -403,7 +409,7 @@ class Ops:
                     gpu=True,
                 )
 
-            shape = cond._data.shape
+            shape: tuple[int, ...] = cond._data.shape
             if not isinstance(fst, Tensor) and isinstance(snd, Tensor):
                 snd = snd._data
                 fst = clarray.empty(QUEUE, shape, dtype=np.float32).fill(fst)
@@ -430,7 +436,7 @@ class Ops:
         return Tensor(np.where(cond._data, fst._data, snd._data))
 
     @staticmethod
-    def reshape(t: Tensor, shape: Tuple) -> Tensor:
+    def reshape(t: Tensor, shape: tuple) -> Tensor:
         """Returns a tensor containing the same data with a new shape."""
 
         if t._gpu:
@@ -466,22 +472,17 @@ class Ops:
         return Tensor(np.exp(t._data))
 
     @staticmethod
-    def maximum(t: Tensor, uts: UTS) -> Tensor:
+    def maximum(t: Tensor, uts: Union[Tensor, Scalar]) -> Tensor:
         """Returns the maximum of a tensor."""
 
         if t._gpu:
             if not isinstance(uts, Tensor):
-                return Tensor(
-                    clarray.maximum(
-                        t._data,
-                        clarray.empty(QUEUE, t.shape, dtype=np.float32).fill(
-                            uts
-                        ),
-                    ),
-                    gpu=t._gpu,
-                )
+                ot: cl.array.Array = clarray.empty(
+                    QUEUE, t.shape, dtype=np.float32
+                ).fill(uts)
+                return Tensor(clarray.maximum(t._data, ot), gpu=True)
 
-            return Tensor(clarray.maximum(t._data, uts._data), gpu=t._gpu)
+            return Tensor(clarray.maximum(t._data, uts._data), gpu=True)
 
         if not isinstance(uts, Tensor):
             return Tensor(np.maximum(t._data, uts))
@@ -489,22 +490,17 @@ class Ops:
         return Tensor(np.maximum(t._data, uts._data))
 
     @staticmethod
-    def minimum(t: Tensor, uts: UTS) -> Tensor:
+    def minimum(t: Tensor, uts: Union[Tensor, Scalar]) -> Tensor:
         """Returns the minimum of a tensor."""
 
         if t._gpu:
             if not isinstance(uts, Tensor):
-                return Tensor(
-                    clarray.minimum(
-                        t._data,
-                        clarray.empty(QUEUE, t.shape, dtype=np.float32).fill(
-                            uts
-                        ),
-                    ),
-                    gpu=t._gpu,
-                )
+                ot: cl.array.Array = clarray.empty(
+                    QUEUE, t.shape, dtype=np.float32
+                ).fill(uts)
+                return Tensor(clarray.minimum(t._data, ot), gpu=True)
 
-            return Tensor(clarray.minimum(t._data, uts._data), gpu=t._gpu)
+            return Tensor(clarray.minimum(t._data, uts._data), gpu=True)
 
         if not isinstance(uts, Tensor):
             return Tensor(np.minimum(t._data, uts))
@@ -512,7 +508,7 @@ class Ops:
         return Tensor(np.minimum(t._data, uts._data))
 
     @staticmethod
-    def power(t: Tensor, exponent: Union[float, int, Tensor]) -> Tensor:
+    def power(t: Tensor, exponent: Union[Tensor, Scalar]) -> Tensor:
         """Raise all elements of the tensor to the specified power."""
 
         if not isinstance(exponent, Tensor):
@@ -536,7 +532,7 @@ class Ops:
         return Tensor(np.transpose(t._data), gpu=t._gpu)
 
     @staticmethod
-    def zeros(shape: Tuple = (1, 1), gpu=False) -> Tensor:
+    def zeros(shape: tuple = (1, 1), gpu=False) -> Tensor:
         """Return a new tensor of given shape and type, filled with zeros."""
 
         if gpu:
@@ -560,7 +556,9 @@ class Random:
     """Random number generation for tensors."""
 
     @staticmethod
-    def normal(shape: Union[Tuple, int] = (1, 1), gpu=False) -> Tensor:
+    def normal(
+        shape: Union[tuple[int, ...], int] = (1, 1), gpu=False
+    ) -> Tensor:
         """Draw random samples from a normal (Gaussian) distribution."""
 
         if gpu:
@@ -574,7 +572,7 @@ class Random:
         return Tensor(np.random.normal(size=shape).astype(np.float32))
 
     @staticmethod
-    def rand(shape: Union[Tuple, int] = (1, 1), gpu=False) -> Tensor:
+    def rand(shape: Union[tuple[int, ...], int] = (1, 1), gpu=False) -> Tensor:
         """Returns a tensor of random values in a given shape."""
 
         if gpu:
@@ -587,7 +585,7 @@ class Random:
 
     @staticmethod
     def uniform(
-        shape: Union[Tuple, int] = (1, 1),
+        shape: Union[tuple[int, ...], int] = (1, 1),
         min: float = 0.0,
         max: float = 1.0,
         gpu=False,
@@ -611,8 +609,8 @@ class Reduce:
     """Reduction operations on tensors."""
 
     @staticmethod
-    def max(t: Tensor) -> float:
-        """The maximum value in a tensor."""
+    def max(t: Tensor) -> np.float32:
+        """The maximum of the values in a tensor."""
 
         if t._gpu:
             return clarray.max(t._data).get().flat[0]
@@ -620,16 +618,16 @@ class Reduce:
         return np.max(t._data)
 
     @staticmethod
-    def min(t: Tensor) -> Tensor:
-        """The minimum value in a tensor."""
+    def min(t: Tensor) -> np.float32:
+        """The minimum of the values in a tensor."""
 
         if t._gpu:
             return clarray.min(t._data).get().flat[0]
 
-        return Tensor(np.min(t._data))
+        return np.min(t._data)
 
     @staticmethod
-    def sum(t: Tensor) -> Scalar:
+    def sum(t: Tensor) -> np.float32:
         """The sum of the values in a tensor."""
 
         if t._gpu:
@@ -638,7 +636,7 @@ class Reduce:
         return np.sum(t._data)
 
     @staticmethod
-    def mean(t: Tensor) -> float:
+    def mean(t: Tensor) -> np.float32:
         """The mean of the values in a tensor."""
 
         if t._gpu:

@@ -2,21 +2,21 @@
 
 import numpy as np
 
-from miniml.layer import Layer, Linear, Sigmoid
-from typing import List
 import miniml.tensor as T
+
+from miniml.layer import Layer, Linear, Sigmoid
 
 
 class Net:
     def __init__(self) -> None:
-        self._layers: List[Layer] = []
+        self._layers: list[Layer] = []
 
     def __str__(self) -> str:
         """A string representation of the network."""
 
-        layers: List[str] = [l.__class__.__name__ for l in self._layers]
+        layers: list[str] = [l.__class__.__name__ for l in self._layers]
 
-        out: List[str] = []
+        out: list[str] = []
         for idx, layer in enumerate(layers):
             out.append(f"({idx + 1}) {layer}")
 
