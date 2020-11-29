@@ -10,7 +10,7 @@ Description:
 import numpy as np
 
 import miniml.tensor as T
-
+import miniml.layer as L
 
 class LeakyReLU:
     def __init__(self, out_dim: int = 3, alpha: float = 1e-2) -> None:
@@ -37,11 +37,12 @@ class LeakyReLU:
         return dF * T.Ops.where(self._saved < 0, self._alpha, 1)
 
 
-class ReLU:
+class ReLU(L.Layer):
     def __init__(self, out_dim: int = 3) -> None:
         """Initilize variables for the ReLU activation function."""
 
         self._units: int = out_dim
+        self.type = "ReLU"
 
     def forward(self, x: T.Tensor) -> T.Tensor:
         """Perform a forward pass (numerically stable)."""
@@ -87,11 +88,12 @@ class Tanh:
         return dF * (1 - T.Ops.square(self._saved))
 
 
-class Sigmoid:
+class Sigmoid(L.Layer):
     def __init__(self, out_dim: int = 3) -> None:
         """Initilize variables for the Sigmoid activation function."""
 
         self._units: int = out_dim
+        self.type = "ReLU"
 
     def forward(self, x: T.Tensor) -> T.Tensor:
         """Perform a forward pass (numerically stable)."""

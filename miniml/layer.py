@@ -40,27 +40,28 @@ class Linear(Layer):
     def __init__(self, in_dim: int, out_dim: int, gpu: bool = False) -> None:
         """Initilize variables."""
 
-        self._weights: T.Tensor = T.Random.rand((in_dim, out_dim), gpu)
-        self._biases: T.Tensor = T.Tensor.rand(out_dim, gpu)
         self._gpu: bool = gpu
+        self._weights: T.Tensor = T.Random.rand((out_dim, in_dim), self._gpu)
+        self._biases: T.Tensor = T.Random.rand((out_dim, in_dim), self._gpu)
+        self.type = "Linear"
 
     def forward(self, x: T.Tensor) -> T.Tensor:
         """Perform a forward pass."""
 
         self._prev: T.Tensor = x
-        return T.Tensor.dot(self._weights, x) + self._bias
+        return T.Ops.dot(self._weights, x) # + self._biases
 
     def backward(self, dF: T.Tensor) -> T.Tensor:
         """Perform a backpropagation."""
 
         # Derivative of the cost function w.r.t. W
-        self._dW: T.Tensor = T.Tensor.dot(dF, self._prev.T)
+        self._dW: T.Tensor = T.Ops.dot(dF, self._prev.T)
 
         # Derivative of the cost function w.r.t. b
         self._db: T.Tensor = T.Tensor(np.mean(dF, axis=1, keepdims=True))
 
         # Apply the chain rule
-        return T.Tensor.dot(self._weights.T, dF)
+        return T.Ops.dot(self._weights.T, dF)
 
     def optimize(self, lr: float = 1e-3) -> None:
         """Perform an optimization step."""

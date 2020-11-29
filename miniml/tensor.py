@@ -1,5 +1,4 @@
 # type: ignore
-
 """
 A Tensor module on top of Numpy arrays.
 
@@ -10,11 +9,14 @@ TODO: Implement the reverse mode autodiff to compute gradients. It will have
 from __future__ import annotations
 from typing import Union
 
+import os
+
 import numpy as np
 
 import pyopencl as cl
 import pyopencl.array as clarray
 import pyopencl.clmath as clmath
+import pyopencl.clrandom as clrandom
 import pyopencl.bitonic_sort as clbitonicsort
 
 
@@ -24,8 +26,21 @@ CONTEXT: cl.Context = cl.create_some_context(answers=[0, 1])
 # Instantiate a queue
 QUEUE: cl.CommandQueue = cl.CommandQueue(CONTEXT)
 
+# OpenCL options
+CLOPTS: str = "-cl-mad-enable -cl-fast-relaxed-math"
+
 # Scalar type
 Scalar = Union[float, int, np.float32]
+
+
+def readcl(filename: str) -> str:
+    """Read an OpenCL file and return it as a string."""
+
+    dirname: str = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(dirname, "opencl", filename)) as file:
+        data = file.read()
+
+    return data
 
 
 class Tensor:
@@ -45,8 +60,11 @@ class Tensor:
                 self._data = clarray.to_device(QUEUE, self._data)
 
         elif isinstance(data, np.ndarray):
-            if data.dtype != np.dtype("float32"):
-                self._data: np.ndarray = data.astype(np.float32)
+            if data.dtype != np.float32:
+                # NOTE: The NumPy array has to be converted into a list first
+                #       This behavior can be caused by many reasons including
+                #       OpenCL and the Operating System
+                self._data: np.ndarray = np.array(data.tolist(), np.float32)
             else:
                 self._data: np.ndarray = data
 
@@ -98,7 +116,7 @@ class Tensor:
                 f"`{type(data)}`"
             )
 
-    def cpu(self) -> Tensor:
+    def to_cpu(self) -> Tensor:
         """Load the data into CPU."""
 
         if self._gpu:
@@ -107,7 +125,7 @@ class Tensor:
 
         return self
 
-    def gpu(self) -> Tensor:
+    def to_gpu(self) -> Tensor:
         """Load the data into GPU."""
 
         if not self._gpu:
@@ -119,7 +137,8 @@ class Tensor:
     def __repr__(self) -> str:
         """A representation of a tensor."""
 
-        return f"Tensor(\n    data={self._data},\n    gpu={self._gpu}\n)"
+        state: str = "GPU" if self._gpu else "CPU"
+        return f"Tensor[{state}](\n{self._data}\n)"
 
     def __iter__(self) -> Union[np.ndarray, cl.array.Array]:
         """An iterator for tensors."""
@@ -370,13 +389,57 @@ class Ops:
     """Tensor operations."""
 
     @staticmethod
-    def dot(m1: Tensor, m2: Tensor) -> Tensor:
+    def dot(t1: Tensor, t2: Tensor) -> Tensor:
+        """Returns a dot product (matrix multiplication) of two tensors."""
+
+        if t1._gpu or t2._gpu:
+            # Convert back to numpy ndarrays
+            t1 = t1.data.get().astype(np.float32)
+            t2 = t2.data.get().astype(np.float32)
+
+            t1_w = np.int32(t1.shape[1])
+            t1_h = np.int32(t1.shape[0])
+
+            t2_w = np.int32(t2.shape[1])
+            t2_h = np.int32(t2.shape[0])
+
+            rt_h = t1_h
+            rt_w = t2_w
+
+            rt = np.empty((rt_h, rt_w)).astype(np.float32)
+
+            # Mem flags
+            mf = cl.mem_flags
+
+            # Buffer variables
+            t1_buf = cl.Buffer(
+                CONTEXT, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=t1
+            )
+            t2_buf = cl.Buffer(
+                CONTEXT, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=t2
+            )
+            rt_buf = cl.Buffer(CONTEXT, mf.WRITE_ONLY, size=rt.nbytes)
+
+            # OpenCL program for computing a matrix multiply
+            prg = cl.Program(CONTEXT, readcl("matmul.cl")).build(options=CLOPTS)
+
+            # Perform the matrix multiplication and return the resulting tensor
+            prg.matmul(
+                QUEUE, rt.shape, None, t1_buf, t2_buf, rt_buf, t1_h, t2_w, t1_w
+            )
+            cl.enqueue_copy(QUEUE, rt, rt_buf)
+            return Tensor(rt, gpu=True)
+
+        return Tensor(np.dot(t1.data, t2.data))
+
+    @staticmethod
+    def vdot(m1: Tensor, m2: Tensor) -> Tensor:
         """Returns a dot product of two tensors."""
 
         if m1._gpu or m2._gpu:
             return Tensor(clarray.dot(m1.data, m2.data), gpu=True)
 
-        return Tensor(np.dot(m1.data, m2.data))
+        return Tensor(np.vdot(m1.data, m2.data))
 
     @staticmethod
     def flatten(t: Tensor) -> Tensor:
@@ -563,7 +626,7 @@ class Random:
 
         if gpu:
             return Tensor(
-                cl.clrandom.PhiloxGenerator(CONTEXT).normal(
+                clrandom.PhiloxGenerator(CONTEXT).normal(
                     cq=QUEUE, shape=shape, dtype=np.float32
                 ),
                 gpu=True,
@@ -576,7 +639,7 @@ class Random:
         """Returns a tensor of random values in a given shape."""
 
         if gpu:
-            return Tensor(cl.clrandom.rand(QUEUE, shape, np.float32), gpu=True)
+            return Tensor(clrandom.rand(QUEUE, shape, np.float32), gpu=True)
 
         if isinstance(shape, tuple):
             return Tensor(np.random.rand(*shape).astype(np.float32))
@@ -594,7 +657,7 @@ class Random:
 
         if gpu:
             return Tensor(
-                cl.clrandom.PhiloxGenerator(CONTEXT).uniform(
+                clrandom.PhiloxGenerator(CONTEXT).uniform(
                     cq=QUEUE, shape=shape, dtype=np.float32, a=min, b=max
                 ),
                 gpu=True,

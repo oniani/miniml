@@ -37,10 +37,10 @@ t1 = T.Tensor([1, 2, 3])
 t2 = T.Tensor([1, 2, 3], gpu=True)
 
 # Convert a CPU tensor to a GPU tensor
-t1 = t1.gpu()
+t1 = t1.to_gpu()
 
 # Convert it back to CPU
-t1 = t1.cpu()
+t1 = t1.to_cpu()
 ```
 
 CPU tensors use NumPy operations and the GPU tensors use PyOpenCL

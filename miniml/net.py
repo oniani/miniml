@@ -1,56 +1,59 @@
-# type: ignore
-
-import numpy as np
-
 import miniml.tensor as T
+import miniml.loss as L
 
-from miniml.layer import Layer, Linear, Sigmoid
 
+class Model:
+    def __init__(self):
+        self._layers: list = []
+        self._loss: list = []
 
-class Net:
-    def __init__(self) -> None:
-        self._layers: list[Layer] = []
-
-    def __str__(self) -> str:
-        """A string representation of the network."""
-
-        layers: list[str] = [l.__class__.__name__ for l in self._layers]
-
-        out: list[str] = []
-        for idx, layer in enumerate(layers):
-            out.append(f"({idx + 1}) {layer}")
-
-        return "\n".join(out)
-
-    def add_layer(self, layer: Layer) -> None:
-        """Add a layer to the neural architecture."""
+    def add_layer(self, layer):
+        """Add a network layer to the model."""
 
         self._layers.append(layer)
 
+    def epoch(self, x, y, lr: float):
+        """One full epoch."""
+
+        # Forward pass through the network
+        # NOTE: loop by index is needed for saving results
+        forward: T.Tensor = x
+        for idx in range(len(self._layers)):
+            forward = self._layers[idx].forward(x)
+            x = forward
+
+        # Compute loss and first gradient
+        mse = L.MeanSquaredError(forward, y)
+        error = mse.forward()
+        gradient = mse.backward()
+
+        self._loss.append(error)
+
+        # Backpropagation
+        for i, _ in reversed(list(enumerate(self._layers))):
+            if self._layers[i].type != "Linear":
+                gradient = self._layers[i].backward(gradient)
+            else:
+                gradient, dW, dB = self._layers[i].backward(gradient)
+                self._layers[i].optimize(dW, dB, lr)
+
+        return error
+
+    def train(self, x_train, y_train, lr: float, epochs: int) -> None:
+        """Train the model."""
+
+        for epoch in range(epochs):
+            loss = self.epoch(x_train, y_train, lr)
+
+            if epoch % 25 == 0:
+                print(f"Epoch: {epoch} | Loss: {loss}")
+
     def predict(self, x: T.Tensor) -> T.Tensor:
-        """Make a prediction."""
+        """Predict by performing a forward pass on a trained network."""
 
-        for layer in self._layers:
-            x = layer.forward(x)
+        forward: T.Tensor = x
+        for idx in range(len(self._layers)):
+            forward = self._layers[idx].forward(x)
+            x = forward
 
-        return x
-
-
-if __name__ == "__main__":
-    # Some pretty-printing
-    from pprint import pprint
-
-    # Random seed for consistent results
-    np.random.seed(57)
-
-    # Dummy data
-    t = T.Random.uniform((3, 4, 3), -100, 100)
-
-    # The model
-    model = Net()
-    model.add_layer(Linear(10, 15))
-    model.add_layer(Linear(15, 20))
-    model.add_layer(Sigmoid(20))
-
-    # Print the prediction
-    pprint(model.predict(t).data)
+        return forward
