@@ -12,6 +12,7 @@ import numpy as np
 import miniml.tensor as T
 import miniml.layer as L
 
+
 class LeakyReLU:
     def __init__(self, out_dim: int = 3, alpha: float = 1e-2) -> None:
         """Initilize variables for the LeakyReLU activation function."""

@@ -96,13 +96,13 @@ class TestTensor:
         gpu_time = time.time() - cur
 
         # The results must be correct and the GPU should be faster
-        assert (res_cpu == res_gpu.cpu()).all()
-        assert (res_cpu.cpu() == res_gpu.cpu()).all()
-        assert (res_cpu.cpu().cpu() == res_gpu.cpu().gpu().cpu()).all()
-        assert (res_cpu.gpu() == res_gpu.gpu().gpu()).all()
-        assert (res_cpu.gpu() == res_gpu.cpu().gpu()).all()
-        assert (res_cpu.cpu().gpu() == res_gpu.gpu()).all()
-        assert (res_cpu.cpu() == res_gpu.gpu().cpu()).all()
+        assert (res_cpu == res_gpu.to_cpu()).all()
+        assert (res_cpu.to_cpu() == res_gpu.to_cpu()).all()
+        assert (res_cpu.to_cpu().to_cpu() == res_gpu.to_cpu().to_gpu().to_cpu()).all()
+        assert (res_cpu.to_gpu() == res_gpu.to_gpu().to_gpu()).all()
+        assert (res_cpu.to_gpu() == res_gpu.to_cpu().to_gpu()).all()
+        assert (res_cpu.to_cpu().to_gpu() == res_gpu.to_gpu()).all()
+        assert (res_cpu.to_cpu() == res_gpu.to_gpu().to_cpu()).all()
         print(f"\nops: CPU: {cpu_time}, GPU: {gpu_time}")
         assert cpu_time - gpu_time > 0
 
@@ -167,36 +167,36 @@ class TestTensor:
         # Activation functions
         assert (
             self._leaky_relu.forward(self._t8)
-            == self._leaky_relu.forward(self._t9).gpu()
+            == self._leaky_relu.forward(self._t9).to_gpu()
         )
         assert (
-            self._relu.forward(self._t8) == self._relu.forward(self._t9).gpu()
+            self._relu.forward(self._t8) == self._relu.forward(self._t9).to_gpu()
         )
         assert (
-            self._tanh.forward(self._t8) == self._tanh.forward(self._t9).gpu()
+            self._tanh.forward(self._t8) == self._tanh.forward(self._t9).to_gpu()
         )
         assert (
             self._sigmoid.forward(self._t8)
-            == self._sigmoid.forward(self._t9).gpu()
+            == self._sigmoid.forward(self._t9).to_gpu()
         )
         assert (
             self._softmax.forward(self._t8)
-            == self._softmax.forward(self._t9).gpu()
+            == self._softmax.forward(self._t9).to_gpu()
         )
         assert (
             self._log_softmax.forward(self._t8)
-            == self._log_softmax.forward(self._t9).gpu()
+            == self._log_softmax.forward(self._t9).to_gpu()
         )
 
         print("\nActivation functions, success")
 
         # Activation function derivatives
-        # assert A.LeakyReLU(self._t8) == A.AD.leaky_relu(self._t9).gpu()
-        # assert A.ReLU(self._t8) == A.AD.relu(self._t9).gpu()
-        # assert A.Tanh(self._t8) == A.AD.tanh(self._t9).gpu()
-        # assert A.Sigmoid(self._t8) == A.AD.sigmoid(self._t9).gpu()
+        # assert A.LeakyReLU(self._t8) == A.AD.leaky_relu(self._t9).to_gpu()
+        # assert A.ReLU(self._t8) == A.AD.relu(self._t9).to_gpu()
+        # assert A.Tanh(self._t8) == A.AD.tanh(self._t9).to_gpu()
+        # assert A.Sigmoid(self._t8) == A.AD.sigmoid(self._t9).to_gpu()
 
         print("Derivatives of `softmax` and `log_softmax` left to implement")
 
-        # assert AD.softmax(t8) == AD.softmax(t9).gpu()
-        # assert AD.softmax(t8) == AD.softmax(t9).gpu()
+        # assert AD.softmax(t8) == AD.softmax(t9).to_gpu()
+        # assert AD.softmax(t8) == AD.softmax(t9).to_gpu()

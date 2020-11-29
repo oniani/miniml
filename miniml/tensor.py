@@ -36,9 +36,9 @@ Scalar = Union[float, int, np.float32]
 def readcl(filename: str) -> str:
     """Read an OpenCL file and return it as a string."""
 
-    dirname: str = os.path.dirname(os.path.abspath(__file__))
+    dirname: str = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
     with open(os.path.join(dirname, "opencl", filename)) as file:
-        data = file.read()
+        data: str = file.read()
 
     return data
 
@@ -61,9 +61,12 @@ class Tensor:
 
         elif isinstance(data, np.ndarray):
             if data.dtype != np.float32:
-                # NOTE: The NumPy array has to be converted into a list first
-                #       This behavior can be caused by many reasons including
-                #       OpenCL and the Operating System
+                # NOTE: The NumPy array has to be converted into a list first.
+                #       Otherwise, the operations on cpu and gpu produce
+                #       different results. This behavior can be caused by many
+                #       reasons including OpenCL and even the operating system
+                #       itself. Some research is needed to figure out cause and
+                #       eliminate extra work for rebuilding the array.
                 self._data: np.ndarray = np.array(data.tolist(), np.float32)
             else:
                 self._data: np.ndarray = data
@@ -134,11 +137,25 @@ class Tensor:
 
         return self
 
+    def to_numpy(self) -> np.ndarray:
+        """Return a numpy ndarray."""
+
+        if self._gpu:
+            return self._data.get()
+
+        return self._data
+
+    @property
+    def gpu(self) -> bool:
+        """Return the state of the GPU."""
+
+        return self._gpu
+
     def __repr__(self) -> str:
         """A representation of a tensor."""
 
         state: str = "GPU" if self._gpu else "CPU"
-        return f"Tensor[{state}](\n{self._data}\n)"
+        return f"{self._data}\n\nTensor[{state}]"
 
     def __iter__(self) -> Union[np.ndarray, cl.array.Array]:
         """An iterator for tensors."""
@@ -392,7 +409,7 @@ class Ops:
     def dot(t1: Tensor, t2: Tensor) -> Tensor:
         """Returns a dot product (matrix multiplication) of two tensors."""
 
-        if t1._gpu or t2._gpu:
+        if t1.gpu or t2.gpu:
             # Convert back to numpy ndarrays
             t1 = t1.data.get().astype(np.float32)
             t2 = t2.data.get().astype(np.float32)
@@ -421,7 +438,9 @@ class Ops:
             rt_buf = cl.Buffer(CONTEXT, mf.WRITE_ONLY, size=rt.nbytes)
 
             # OpenCL program for computing a matrix multiply
-            prg = cl.Program(CONTEXT, readcl("matmul.cl")).build(options=CLOPTS)
+            prg = cl.Program(CONTEXT, readcl("matmul.cl")).build(
+                options=CLOPTS
+            )
 
             # Perform the matrix multiplication and return the resulting tensor
             prg.matmul(
@@ -436,7 +455,7 @@ class Ops:
     def vdot(m1: Tensor, m2: Tensor) -> Tensor:
         """Returns a dot product of two tensors."""
 
-        if m1._gpu or m2._gpu:
+        if m1.gpu or m2.gpu:
             return Tensor(clarray.dot(m1.data, m2.data), gpu=True)
 
         return Tensor(np.vdot(m1.data, m2.data))
@@ -445,7 +464,7 @@ class Ops:
     def flatten(t: Tensor) -> Tensor:
         """Returns flattened tensor containing the same data."""
 
-        return Tensor(t._data.ravel(), gpu=t._gpu)
+        return Tensor(t._data.ravel(), gpu=t.gpu)
 
     @staticmethod
     def fill(shape: tuple[int, ...], val: np.float32, gpu=False) -> Tensor:
@@ -465,7 +484,7 @@ class Ops:
     ) -> Tensor:
         """Fill the tensor based on a condition."""
 
-        if cond._gpu:
+        if cond.gpu:
             if isinstance(fst, Tensor) and isinstance(snd, Tensor):
                 return Tensor(
                     clarray.if_positive(cond._data, fst._data, snd._data),
@@ -502,7 +521,7 @@ class Ops:
     def reshape(t: Tensor, shape: tuple) -> Tensor:
         """Returns a tensor containing the same data with a new shape."""
 
-        if t._gpu:
+        if t.gpu:
             return Tensor(clarray.reshape(t._data, shape), gpu=True)
 
         return Tensor(np.reshape(t._data, shape))
@@ -511,7 +530,7 @@ class Ops:
     def log(t: Tensor) -> Tensor:
         """Returns a natural logarithm of a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             return Tensor(clmath.log(t._data), gpu=True)
 
         return Tensor(np.log(t._data))
@@ -520,7 +539,7 @@ class Ops:
     def tanh(t: Tensor) -> Tensor:
         """Returns a tanh of a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             return Tensor(clmath.tanh(t._data), gpu=True)
 
         return Tensor(np.tanh(t._data))
@@ -529,7 +548,7 @@ class Ops:
     def exp(t: Tensor) -> Tensor:
         """Returns a natural exponent of a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             return Tensor(clmath.exp(t._data), gpu=True)
 
         return Tensor(np.exp(t._data))
@@ -538,7 +557,7 @@ class Ops:
     def maximum(t: Tensor, uts: Union[Tensor, Scalar]) -> Tensor:
         """Returns the maximum of a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             if not isinstance(uts, Tensor):
                 ot: cl.array.Array = clarray.empty(
                     QUEUE, t.shape, dtype=np.float32
@@ -556,7 +575,7 @@ class Ops:
     def minimum(t: Tensor, uts: Union[Tensor, Scalar]) -> Tensor:
         """Returns the minimum of a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             if not isinstance(uts, Tensor):
                 ot: cl.array.Array = clarray.empty(
                     QUEUE, t.shape, dtype=np.float32
@@ -575,24 +594,24 @@ class Ops:
         """Raise all elements of the tensor to the specified power."""
 
         if not isinstance(exponent, Tensor):
-            return Tensor(t._data ** exponent, gpu=t._gpu)
+            return Tensor(t._data ** exponent, gpu=t.gpu)
 
-        return Tensor(t._data ** exponent._data, gpu=t._gpu or exponent._gpu)
+        return Tensor(t._data ** exponent._data, gpu=t.gpu or exponent.gpu)
 
     @staticmethod
     def square(t: Tensor) -> Tensor:
         """Return a square-valued tensor."""
 
-        return Tensor(t._data ** 2, gpu=t._gpu)
+        return Tensor(t._data ** 2, gpu=t.gpu)
 
     @staticmethod
     def transpose(t: Tensor) -> Tensor:
         """Returns a transpose of a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             return Tensor(clarray.transpose(t._data), gpu=True)
 
-        return Tensor(np.transpose(t._data), gpu=t._gpu)
+        return Tensor(np.transpose(t._data), gpu=t.gpu)
 
     @staticmethod
     def zeros(shape: tuple = (1, 1), gpu=False) -> Tensor:
@@ -675,7 +694,7 @@ class Reduce:
     def max(t: Tensor) -> np.float32:
         """The maximum of the values in a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             return clarray.max(t._data).get().flat[0]
 
         return np.max(t._data)
@@ -684,7 +703,7 @@ class Reduce:
     def min(t: Tensor) -> np.float32:
         """The minimum of the values in a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             return clarray.min(t._data).get().flat[0]
 
         return np.min(t._data)
@@ -693,7 +712,7 @@ class Reduce:
     def sum(t: Tensor) -> np.float32:
         """The sum of the values in a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             return clarray.sum(t._data).get().flat[0]
 
         return np.sum(t._data)
@@ -702,7 +721,7 @@ class Reduce:
     def mean(t: Tensor) -> np.float32:
         """The mean of the values in a tensor."""
 
-        if t._gpu:
+        if t.gpu:
             return clarray.sum(t._data).get().flat[0] / t._data.size
 
         return np.mean(t._data)

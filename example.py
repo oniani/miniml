@@ -19,7 +19,6 @@ def generate_data(num: int) -> pd.DataFrame:
         data.append([0, 0, 0])
 
     return pd.DataFrame(data, columns=["fst", "snd", "res"])
-        
 
 
 def main() -> None:

@@ -49,7 +49,7 @@ class Linear(Layer):
         """Perform a forward pass."""
 
         self._prev: T.Tensor = x
-        return T.Ops.dot(self._weights, x) # + self._biases
+        return T.Ops.dot(self._weights, x)  # + self._biases
 
     def backward(self, dF: T.Tensor) -> T.Tensor:
         """Perform a backpropagation."""

@@ -46,6 +46,12 @@ t1 = t1.to_cpu()
 CPU tensors use NumPy operations and the GPU tensors use PyOpenCL
 operations.
 
+## Tests
+
+```console
+python3 -m pytest -sv
+```
+
 ---
 
 TODO:
@@ -59,4 +65,5 @@ TODO:
 ## References
 
 - [NumPy](https://numpy.org/)
+- [OpenCL](https://www.khronos.org/opencl/)
 - [PyOpenCL](https://documen.tician.de/pyopencl/index.html)
