@@ -98,7 +98,9 @@ class TestTensor:
         # The results must be correct and the GPU should be faster
         assert (res_cpu == res_gpu.to_cpu()).all()
         assert (res_cpu.to_cpu() == res_gpu.to_cpu()).all()
-        assert (res_cpu.to_cpu().to_cpu() == res_gpu.to_cpu().to_gpu().to_cpu()).all()
+        assert (
+            res_cpu.to_cpu().to_cpu() == res_gpu.to_cpu().to_gpu().to_cpu()
+        ).all()
         assert (res_cpu.to_gpu() == res_gpu.to_gpu().to_gpu()).all()
         assert (res_cpu.to_gpu() == res_gpu.to_cpu().to_gpu()).all()
         assert (res_cpu.to_cpu().to_gpu() == res_gpu.to_gpu()).all()
@@ -170,10 +172,12 @@ class TestTensor:
             == self._leaky_relu.forward(self._t9).to_gpu()
         )
         assert (
-            self._relu.forward(self._t8) == self._relu.forward(self._t9).to_gpu()
+            self._relu.forward(self._t8)
+            == self._relu.forward(self._t9).to_gpu()
         )
         assert (
-            self._tanh.forward(self._t8) == self._tanh.forward(self._t9).to_gpu()
+            self._tanh.forward(self._t8)
+            == self._tanh.forward(self._t9).to_gpu()
         )
         assert (
             self._sigmoid.forward(self._t8)
