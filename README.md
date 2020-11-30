@@ -1,7 +1,6 @@
 # miniml
 
-A minimal machine learning library, implemented from scratch with OpenCL GPU
-support.
+A minimal machine learning library with OpenCL GPU support.
 
 ## Perf
 
@@ -27,7 +26,7 @@ support.
 Most important operations are implemented. They work on both CPU and GPU.
 The API is very simple:
 
-```
+```python
 import miniml.tensor as T
 
 # Initialize a CPU tensor
