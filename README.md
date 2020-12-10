@@ -1,6 +1,6 @@
 # miniml
 
-A minimal machine learning library with OpenCL GPU support.
+A minimal ML library with OpenCL GPU support.
 
 ## Perf
 
@@ -35,11 +35,11 @@ t1 = T.Tensor([1, 2, 3])
 # Initialize a GPU tensor
 t2 = T.Tensor([1, 2, 3], gpu=True)
 
-# Convert a CPU tensor to a GPU tensor
-t1 = t1.to_gpu()
+# Load the GPU tensor onto the CPU
+t2 = t2.to_gpu()
 
-# Convert it back to CPU
-t1 = t1.to_cpu()
+# Load it back onto the GPU
+t2 = t2.to_gpu()
 ```
 
 CPU tensors use NumPy operations and the GPU tensors use PyOpenCL

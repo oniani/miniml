@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os
-from setuptools import setup
+import setuptools
 
 
 def read_long_description(filename: str) -> str:
@@ -22,12 +22,12 @@ def read_requirements(filename: str) -> list[str]:
 
 
 if __name__ == "__main__":
-    setup(
+    setuptools.setup(
         name="miniml",
         version="0.1.0",
         author="David Oniani",
         author_email="onianidavid@gmail.com",
-        description="A minimal machine learning library with OpenCL GPU support",
+        description="A minimal ML library with OpenCL GPU support",
         license="GPLv3",
         url="https://github.com/oniani/miniml",
         packages=["miniml", "tests"],
