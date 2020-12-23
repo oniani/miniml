@@ -1,3 +1,8 @@
+⚠
+
+The project is under development. Some core features (e.g., GPU array
+broadcasting) are yet to be implemented.
+
 # miniml
 
 A minimal ML library with OpenCL GPU support.
