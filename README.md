@@ -41,7 +41,7 @@ t1 = T.Tensor([1, 2, 3])
 t2 = T.Tensor([1, 2, 3], gpu=True)
 
 # Load the GPU tensor onto the CPU
-t2 = t2.to_gpu()
+t2 = t2.to_cpu()
 
 # Load it back onto the GPU
 t2 = t2.to_gpu()
@@ -71,3 +71,7 @@ TODO:
 - [NumPy](https://numpy.org/)
 - [OpenCL](https://www.khronos.org/opencl/)
 - [PyOpenCL](https://documen.tician.de/pyopencl/index.html)
+
+## License
+
+[MIT License](LICENSE)
