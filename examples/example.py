@@ -9,7 +9,7 @@ from miniml.net import Model
 
 
 def generate_data(num: int) -> pd.DataFrame:
-    """Learning OR"""
+    """Learning logical OR operation"""
 
     data: list[list[int]] = []
     for _ in range(num):
@@ -29,7 +29,7 @@ def main() -> None:
 
     # GPU
     x = Tensor(data[["fst", "snd"]].to_numpy(), gpu=True)
-    # y = Tensor(data["res"].values, gpu=True)
+    y = Tensor(data["res"].values, gpu=True)
 
     # Create the model
     model = Model()
@@ -45,7 +45,9 @@ def main() -> None:
     model.add_layer(Sigmoid(1))
 
     # Train the model
-    # model.train(x_train=x.T, y_train=y, lr=3e-4, epochs=100)
+    # TODO: Fix `AttributeError: 'memoryview' object has no attribute 'get'`
+    #       Error is caused by: <memory at 0x1155e2930> type value
+    model.train(x_train=x.T, y_train=y, lr=3e-4, epochs=10)
     print(model.predict(x))
 
 

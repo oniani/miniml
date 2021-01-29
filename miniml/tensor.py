@@ -406,10 +406,10 @@ class Ops:
     """Tensor operations."""
 
     @staticmethod
-    def dot(t1: Tensor, t2: Tensor) -> Tensor:
+    def dot(t1: Tensor, t2: Tensor, gpu=False) -> Tensor:
         """Returns a dot product (matrix multiplication) of two tensors."""
 
-        if t1.gpu or t2.gpu:
+        if gpu:
             # Convert back to numpy ndarrays
             t1 = t1.data.get().astype(np.float32)
             t2 = t2.data.get().astype(np.float32)
