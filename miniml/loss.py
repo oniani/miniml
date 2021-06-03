@@ -11,7 +11,7 @@ class MeanSquaredError:
         self._real = real
 
     def forward(self):
-        return T.Reduce(T.Ops.power(self._pred - self._real, 2))
+        return T.Reduce.mean(T.Ops.power(self._pred - self._real, 2))
 
     def backward(self):
         return 2 * T.Reduce.mean(self._pred - self._real)

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Union
 
 import os
+import pkgutil
 
 import numpy as np
 
@@ -36,11 +37,7 @@ Scalar = Union[float, int, np.float32]
 def readcl(filename: str) -> str:
     """Read an OpenCL file and return it as a string."""
 
-    dirname: str = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
-    with open(os.path.join(dirname, "opencl", filename)) as file:
-        data: str = file.read()
-
-    return data
+    return pkgutil.get_data("miniml", f"opencl/{filename}").decode()
 
 
 class Tensor:
@@ -325,8 +322,8 @@ class Tensor:
 
     def view(self, dtype: np.dtype) -> None:
         """Returns the view of a tensor with the same data. If dtype is
-           different from current dtype, the actual bytes of memory will be
-           reinterpreted.
+        different from current dtype, the actual bytes of memory will be
+        reinterpreted.
         """
 
         return Tensor(self._data.view(dtype), gpu=self._gpu)
@@ -365,8 +362,8 @@ class Tensor:
     @property
     def flags(self) -> Union[cl.compyte.array.ArrayFlags, np.flagsobj]:
         """Return an object with attributes `c_contiguous`, `f_contiguous` and
-           `forc`, which may be used to query contiguity properties in analogy
-           to `numpy.ndarray.flags`.
+        `forc`, which may be used to query contiguity properties in analogy
+        to `numpy.ndarray.flags`.
         """
 
         return self._data.size
@@ -406,10 +403,10 @@ class Ops:
     """Tensor operations."""
 
     @staticmethod
-    def dot(t1: Tensor, t2: Tensor) -> Tensor:
+    def dot(t1: Tensor, t2: Tensor, gpu=False) -> Tensor:
         """Returns a dot product (matrix multiplication) of two tensors."""
 
-        if t1.gpu or t2.gpu:
+        if gpu:
             # Convert back to numpy ndarrays
             t1 = t1.data.get().astype(np.float32)
             t2 = t2.data.get().astype(np.float32)
@@ -480,7 +477,9 @@ class Ops:
 
     @staticmethod
     def where(
-        cond: Tensor, fst: Union[Tensor, Scalar], snd: Union[Tensor, Scalar],
+        cond: Tensor,
+        fst: Union[Tensor, Scalar],
+        snd: Union[Tensor, Scalar],
     ) -> Tensor:
         """Fill the tensor based on a condition."""
 
@@ -625,7 +624,7 @@ class Ops:
     @staticmethod
     def zeros_like(t: Tensor, gpu=False) -> Tensor:
         """Return a tensor of zeros with the same shape and type as a given
-           tensor.
+        tensor.
         """
 
         if gpu:

@@ -110,8 +110,8 @@ class TestTensor:
 
     def test_tensor_ops_rng(self) -> None:
         """Testing `T` class on random number generation in normal,
-           random, and uniformly random distributions. Comparing performance on
-           GPU and verifying that it is faster.
+        random, and uniformly random distributions. Comparing performance on
+        GPU and verifying that it is faster.
         """
 
         # GPU
