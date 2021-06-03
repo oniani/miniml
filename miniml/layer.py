@@ -65,9 +65,13 @@ class Linear(Layer):
         self._dW: T.Tensor = T.Ops.dot(dF, self._prev.T, gpu=True)
 
         # Derivative of the cost function w.r.t. b
+<<<<<<< HEAD
         self._db: T.Tensor = T.Tensor(
             np.mean(dF, axis=1, keepdims=True), gpu=True
         )
+=======
+        self._db: T.Tensor = T.Tensor(np.mean(dF, axis=1, keepdims=True), gpu=True)
+>>>>>>> c5ae615000df5696a0d0d77bb22be63ed991b76f
 
         # Apply the chain rule
         return T.Ops.dot(self._weights.T, dF), self._dW, self._db
